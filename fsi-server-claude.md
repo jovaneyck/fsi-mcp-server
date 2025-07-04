@@ -7,9 +7,7 @@ This guide explains how to collaborate with the FSI server through HTTP API and 
 The FSI server is running with these endpoints:
 - **HTTP API**: `http://G1SGSG3.mshome.net:8080/send?source=claude`
 - **Session Log**: `/mnt/c/tmp/fsi-session.log`
-Please also update the FSI server cloud markdown file with this 
-- - 
-- Because I am not seeing it **Collaborative Script**: you will prompt me for the fsx file we will be collaborating on.
+- **Collaborative Script**: you will prompt me for the fsx file we will be collaborating on.
 
 ## Workflow for F# Code Execution
 
@@ -17,26 +15,37 @@ When executing F# code, follow this dual-action workflow:
 
 ### 1. Send Code to FSI
 ```bash
-curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d 'YOUR_FSHARP_CODE;;'
+curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'YOUR_FSHARP_CODE;;'
 ```
 Note: Include `;;` for FSI execution.
+**IMPORTANT**: Always use `$'...'` syntax and escape ALL pipe characters as `\u007C` (Unicode escape) to prevent shell interpretation. This includes:
+- Pipe operators: `\u007C>`
+- Pattern matching: `\u007C 0 \u007C 1 \u007C 2`
+- Any other usage of `|` character
+  The shell will otherwise interpret any `|` as shell pipe operators causing syntax errors in FSI.
 
 ### 2. Add Code to Collaborative Script
 Simultaneously append the same code to the scratch.fsx file using the Edit tool. **IMPORTANT: Remove the `;;` when adding to .fsx files** - they are only needed for FSI interactive execution, not script files. Do NOT add any comments indicating who wrote what - we work synergistically together.
 
-### 3. Silent Execution
-Work silently. Do not report results or read the log file unless specifically asked. The user sees all FSI output in their own session.
+### 3. Validate Execution
+**CRITICAL**: After sending code to FSI, ALWAYS check the FSI session log for errors before reporting completion. Use `tail -n 20 /mnt/c/tmp/fsi-session.log` to verify the code executed successfully. If there are compilation errors, runtime errors, or any failures, ALERT the user immediately with "ALERT: We have a problem!" and describe the specific error. NEVER report work as "done" or "complete" if there are any errors in the log.
 
 ## Example Execution Pattern
 
 ```bash
 # 1. Execute in FSI (with ;;)
-curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d 'let result = 42 * 2;;'
+curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'let result = 42 * 2;;'
 
-# 2. Add to collaborative script (WITHOUT ;; and no attribution comments)
+# 2. For code with pipe operators:
+curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'[1;2;3] \u007C> List.map (fun x -> x * 2);;'
+
+# 3. For pattern matching with pipes:
+curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'match x with \u007C 1 \u007C 2 -> "small" \u007C _ -> "large";;'
+
+# 3. Add to collaborative script (WITHOUT ;; and no attribution comments)
 Edit scratch.fsx to append: let result = 42 * 2
 
-# 3. Work silently - user sees results in their FSI session
+# 4. Work silently - user sees results in their FSI session
 ```
 
 ## Key Principles
