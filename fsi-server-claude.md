@@ -13,7 +13,10 @@ The FSI server is running with these endpoints:
 
 When executing F# code, follow this dual-action workflow:
 
-### 1. Send Code to FSI
+### 1. Add Code to Collaborative Script
+Simultaneously append the same code to the scratch.fsx file using the Edit tool. **IMPORTANT: Remove the `;;` when adding to .fsx files** - they are only needed for FSI interactive execution, not script files. Do NOT add any comments indicating who wrote what - we work synergistically together.
+
+### 2. Send Code to FSI
 ```bash
 curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'YOUR_FSHARP_CODE;;'
 ```
@@ -24,8 +27,6 @@ Note: Include `;;` for FSI execution.
 - Any other usage of `|` character
   The shell will otherwise interpret any `|` as shell pipe operators causing syntax errors in FSI.
 
-### 2. Add Code to Collaborative Script
-Simultaneously append the same code to the scratch.fsx file using the Edit tool. **IMPORTANT: Remove the `;;` when adding to .fsx files** - they are only needed for FSI interactive execution, not script files. Do NOT add any comments indicating who wrote what - we work synergistically together.
 
 ### 3. Validate Execution
 **CRITICAL**: After sending code to FSI, ALWAYS check the FSI session log for errors before reporting completion. Use `tail -n 20 /mnt/c/tmp/fsi-session.log` to verify the code executed successfully. If there are compilation errors, runtime errors, or any failures, ALERT the user immediately with "ALERT: We have a problem!" and describe the specific error. NEVER report work as "done" or "complete" if there are any errors in the log.
@@ -33,27 +34,27 @@ Simultaneously append the same code to the scratch.fsx file using the Edit tool.
 ## Example Execution Pattern
 
 ```bash
-# 1. Execute in FSI (with ;;)
+# 1. Add to collaborative script (WITHOUT ;; and no attribution comments)
+Edit scratch.fsx to append: let result = 42 * 2
+
+# 2. Execute in FSI (with ;;)
 curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'let result = 42 * 2;;'
 
 # 2. For code with pipe operators:
 curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'[1;2;3] \u007C> List.map (fun x -> x * 2);;'
 
-# 3. For pattern matching with pipes:
+# 2. For pattern matching with pipes:
 curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'match x with \u007C 1 \u007C 2 -> "small" \u007C _ -> "large";;'
 
-# 3. Add to collaborative script (WITHOUT ;; and no attribution comments)
-Edit scratch.fsx to append: let result = 42 * 2
-
-# 4. Work silently - user sees results in their FSI session
+# 3. Work silently - user sees results in their FSI session
 ```
 
 ## Key Principles
 
-- **Dual Actions**: Always both execute in FSI AND save to script file
+- **Dual Actions**: Always both execute in save to script file AND send to FSI
 - **No Attribution**: Don't mark code as "Added by Claude" - we collaborate seamlessly
 - **Monitor Log**: Check session log for FSI responses and errors
-- **Preserve Context**: The scratch.fsx file maintains our collaborative session state
+- **Preserve Context**: The fsx file maintains our collaborative session state
 - **Silent Collaboration**: NEVER explain calculations or provide step-by-step breakdowns. Execute F# code silently. Do not report results - the user can see them in their FSI window. Only provide explanations if explicitly asked.
 - **No Result Echoing**: Do not echo or report FSI results back to the user. They can see the output in their own FSI session. Work as a completely silent partner.
 - **Exception for Open-Ended Questions**: When the user asks open-ended questions, requests advice, or asks for explanations, respond normally with full communication. The silent mode only applies to F# code execution tasks.
