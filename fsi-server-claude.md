@@ -4,8 +4,13 @@ This guide explains how to collaborate with the FSI server through HTTP API and 
 
 ## Active FSI Session Integration
 
-The FSI server is running with these endpoints:
-- **HTTP API**: `http://G1SGSG3.mshome.net:8080/send?source=claude`
+**Configuration**: Set your FSI server hostname:
+```bash
+FSI_HOST="http://G1SGSG3.mshome.net:8080"  # Replace with your FSI server host
+```
+
+The FSI server endpoints:
+- **HTTP API**: `${FSI_HOST}/send?source=claude`
 - **Session Log**: `/mnt/c/tmp/fsi-session.log`
 - **Collaborative Script**: you will prompt me for the fsx file we will be collaborating on.
 
@@ -13,19 +18,30 @@ The FSI server is running with these endpoints:
 
 When executing F# code, follow this dual-action workflow:
 
-### 1. Add Code to Collaborative Script
-Simultaneously append the same code to the scratch.fsx file using the Edit tool. **IMPORTANT: Remove the `;;` when adding to .fsx files** - they are only needed for FSI interactive execution, not script files. Do NOT add any comments indicating who wrote what - we work synergistically together.
+### 1. Add Code to Collaborative Script **FIRST**
+**CRITICAL WORKFLOW**: ALWAYS add code to the .fsx file FIRST using the Edit tool, THEN send to FSI. This maintains the collaborative script as the authoritative source.
+
+**For major code changes** (new functions, substantial rewrites, debugging functions):
+1. **FIRST**: Add to .fsx file using Edit tool
+2. **THEN**: Send to FSI for testing
+3. **Remove `;;`** when adding to .fsx files - only needed for FSI execution
+
+**For minor troubleshooting** (quick tests, single expressions):
+- OK to send directly to FSI without updating .fsx
+
+**NEVER** develop substantial code only in FSI - the .fsx file is our collaborative workspace and must stay current.
 
 ### 2. Send Code to FSI
 ```bash
-curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'YOUR_FSHARP_CODE;;'
+curl -X POST "${FSI_HOST}/send?source=claude" -d $'YOUR_FSHARP_CODE;;'
 ```
-Note: Include `;;` for FSI execution.
-**IMPORTANT**: Always use `$'...'` syntax and escape ALL pipe characters as `\u007C` (Unicode escape) to prevent shell interpretation. This includes:
-- Pipe operators: `\u007C>`
-- Pattern matching: `\u007C 0 \u007C 1 \u007C 2`
-- Any other usage of `|` character
-  The shell will otherwise interpret any `|` as shell pipe operators causing syntax errors in FSI.
+
+**CRITICAL PIPE HANDLING**: Always use `$'...'` syntax and escape ALL pipe characters as `\u007C` (Unicode escape) to prevent shell interpretation:
+- **Pipeline operators**: `\u007C>` instead of `|>`
+- **Pattern matching**: `\u007C 1 \u007C 2` instead of `| 1 | 2`
+- **Function definitions**: `function \u007C '^' -> Up` instead of `function | '^' -> Up`
+
+The shell interprets literal `|` as pipe operators, causing FSI syntax errors. Use Unicode escapes for ALL pipe characters in curl commands.
 
 
 ### 3. Validate Execution
@@ -37,14 +53,22 @@ Note: Include `;;` for FSI execution.
 # 1. Add to collaborative script (WITHOUT ;; and no attribution comments)
 Edit scratch.fsx to append: let result = 42 * 2
 
-# 2. Execute in FSI (with ;;)
-curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'let result = 42 * 2;;'
+# 2. Execute in FSI (with ;; and Unicode escapes for pipes)
+curl -X POST "${FSI_HOST}/send?source=claude" -d $'let result = 42 * 2;;'
 
-# 2. For code with pipe operators:
-curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'[1;2;3] \u007C> List.map (fun x -> x * 2);;'
+# Pipeline operators:
+curl -X POST "${FSI_HOST}/send?source=claude" -d $'[1;2;3] \u007C> List.map (fun x -> x * 2);;'
 
-# 2. For pattern matching with pipes:
-curl -X POST 'http://G1SGSG3.mshome.net:8080/send?source=claude' -d $'match x with \u007C 1 \u007C 2 -> "small" \u007C _ -> "large";;'
+# Pattern matching:
+curl -X POST "${FSI_HOST}/send?source=claude" -d $'match x with \u007C 1 \u007C 2 -> "small" \u007C _ -> "large";;'
+
+# Multi-line function definitions:
+curl -X POST "${FSI_HOST}/send?source=claude" -d $'let findGuard (grid: Grid) =
+    grid
+    \u007C> List.mapi (fun r row ->
+        row \u007C> Seq.mapi (fun c cell -> (r, c), cell)
+        \u007C> Seq.filter (fun (_, cell) -> cell <> \'.\'))
+    \u007C> List.collect id \u007C> List.head;;'
 
 # 3. Work silently - user sees results in their FSI session
 ```
@@ -103,11 +127,16 @@ Based on analysis of existing codebase (/mnt/c/projects/advent-of-code-2024), fo
 - **Discriminated union patterns**
 - **failwith for unexpected cases**: `| unknown -> failwith $"unknown %A{unknown}"`
 
-### 5. Collection Processing
-- **List comprehensions**: `[for rn, row in input |> Seq.indexed do ...]`
-- **Higher-order functions**: `List.map`, `List.filter`, `List.collect`, `List.fold`
-- **Functional transformations**: Avoid mutable state
-- **Immutable data structures**: `List`, `Set`, `Map`
+### 5. Collection Processing - PURE FUNCTIONAL STYLE
+- **NEVER use `for` loops** - use collection functions instead
+- **Higher-order functions**: `List.map`, `List.filter`, `List.collect`, `List.fold`, `List.mapi`, `List.choose`
+- **Pipeline transformations**: Chain operations with `|>`
+- **Immutable data structures**: `List`, `Set`, `Map`, `Array` (but prefer List)
+- **Functional patterns**:
+  - Use `List.fold` for accumulation instead of mutable counters
+  - Use `List.filter` instead of conditional accumulation
+  - Use `List.choose` for map filter combinations
+  - Use `List.mapi` when you need index access
 
 ### 6. Type Usage
 - **Type aliases**: `type Location = int * int`
@@ -117,8 +146,10 @@ Based on analysis of existing codebase (/mnt/c/projects/advent-of-code-2024), fo
 ### 7. Code Organization
 - **4-space indentation**
 - **Functional-first approach** with immutable data
+- **NEVER use `mutable` keyword** - forbidden in all code unless explicitly asked for by the user
 - **Small, focused, composable functions**
 - **Type safety with custom types**
+- **Modern string interpolation**: Use `$"text {expression}"` instead of `sprintf` or `printfn "text %d" value`
 
 ## Testing Patterns and Approaches
 
@@ -170,9 +201,9 @@ run ()
 
 ## Available API Endpoints
 
-- `POST /send?source=claude` - Execute F# code in FSI
-- `POST /sync-file?file=path` - Sync entire .fsx file to FSI
-- `GET /output?lines=N` - Get recent FSI output
-- `GET /status` - Check FSI process status
+- `POST ${FSI_HOST}/send?source=claude` - Execute F# code in FSI
+- `POST ${FSI_HOST}/sync-file?file=path` - Sync entire .fsx file to FSI
+- `GET ${FSI_HOST}/output?lines=N` - Get recent FSI output
+- `GET ${FSI_HOST}/status` - Check FSI process status
 
 This workflow creates a persistent, collaborative F# workspace where code is both executed immediately and preserved for future reference.
