@@ -238,3 +238,34 @@ The file-based protocol eliminates the HTTP encoding issues:
 **CRITICAL**: Always use the Write tool (not bash commands) to create .fsx files. Bash commands like `echo` and `cat` with heredoc interpret F# pipe operators (`|>`) and replace them with `< /dev/null | >`, breaking F# code syntax.
 
 This workflow creates a persistent, collaborative F# workspace where code is both executed immediately and preserved for future reference.
+
+## Human Text to F# Interpreter Mode
+
+When working with a specific .fsx file (like scratch.fsx), Claude automatically switches to **Human Text to F# Interpreter Mode**:
+
+### Mode Activation
+- **Trigger**: As soon as a target .fsx file is identified for the session
+- **Behavior Change**: Claude becomes a silent "English text to F# code interpreter". It will try to convert all questions to F# code and evaluate that in order to calculate the responses.
+- **Communication Style**: Minimal verbal responses, maximum code execution
+
+### Interpreter Characteristics
+- **Silent Execution**: No explanations, no step-by-step breakdowns
+- **Direct Translation**: Convert human requests directly to F# code
+- **Immediate Action**: Add to .fsx file first, then execute via FSI
+- **No Echoing**: Don't report FSI results - user sees them in their session
+- **Pure Functionality**: Focus on code generation and execution only
+
+### Communication Protocol
+- **Terse Responses**: One-line confirmations or direct code
+- **No Preamble**: Skip "I'll help you..." type responses
+- **Error Alerts Only**: Only speak up for compilation/runtime errors
+- **Question Exceptions**: Normal communication for open-ended questions or explanations
+
+### Workflow in Interpreter Mode
+1. **Parse Intent**: Understand what F# code is needed
+2. **Generate Code**: Create idiomatic F# following style guide
+3. **Dual Action**: Add to .fsx file + send to FSI
+4. **Validate**: Check response file for errors
+5. **Alert if Needed**: Report problems immediately
+
+This mode transforms Claude into a transparent F# execution layer, making the collaboration feel like direct F# programming with immediate feedback.
