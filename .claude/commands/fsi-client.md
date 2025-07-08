@@ -56,8 +56,8 @@ After file processing, check the response file using the SAME timestamp:
 ```bash
 # CRITICAL: Use the SAME timestamp variable to read the matching response
 response_file="/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
-# Wait briefly for processing, then read the complete FSI interaction
-sleep 2 && cat "$response_file"
+# Read the complete FSI interaction (no sleep needed - Claude thinking time is sufficient)
+cat "$response_file"
 ```
 
 **Response format**:
@@ -82,7 +82,7 @@ Write tool: "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx"
 Content: "let result = 42 * 2;;"
 
 # 3. Read response using SAME timestamp variable
-sleep 2 && cat "/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
+cat "/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
 
 # Multi-line function definitions - CRITICAL: Use Write tool for pipe operators
 timestamp=$(date +%Y%m%d-%H%M%S)
@@ -94,7 +94,7 @@ Content: "let findGuard (grid: Grid) =
         |> Seq.filter (fun (_, cell) -> cell <> '.'))
     |> List.collect id |> List.head;;"
 
-sleep 2 && cat "/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
+cat "/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
 
 # 4. Work silently - user sees results in their FSI session
 ```
