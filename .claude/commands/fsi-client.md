@@ -70,6 +70,26 @@ cat "$response_file"
 ### 4. Validate Execution
 **CRITICAL**: After sending code to FSI, ALWAYS check the response file for errors before reporting completion. If there are compilation errors, runtime errors, or any failures, ALERT the user immediately with "ALERT: We have a problem!" and describe the specific error. NEVER report work as "done" or "complete" if there are any errors in the response.
 
+### 5. FSI State Management - CRITICAL
+**FSI maintains persistent state between executions**. This creates potential inconsistencies between your .fsx file and the running FSI session.
+
+**The Problem**: 
+- You edit a function in the .fsx file (e.g., comment out debug prints)
+- FSI still has the old version with debug prints loaded
+- Sending new code doesn't automatically reload edited functions
+
+**Solutions**:
+1. **Complete fsx Reloading**: When making ANY changes to existing code, always send the COMPLETE fsx file to FSI:
+   ```fsharp
+   // Instead of just: solve input;;
+   // Send: let solve (input: string[]) : int = ...complete fsx file... 
+   //       solve input;;
+   ```
+
+2. **FSI Session Restart**: For major changes or when debug code pollutes the session:
+   - Tell user: "Please restart your FSI session to clear old function definitions"
+   - Then reload the complete .fsx file content
+
 ## Example Execution Pattern
 
 ```bash
@@ -106,6 +126,7 @@ cat "/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
 - **No Attribution**: Don't mark code as "Added by Claude" - we collaborate seamlessly
 - **Monitor Responses**: Check response files for FSI output and errors
 - **Preserve Context**: The fsx file maintains our collaborative session state
+- **FSI State Consistency**: Always ensure FSI session state matches .fsx file content - suspect stale state when unexpected behavior occurs
 - **Silent Collaboration**: NEVER explain calculations or provide step-by-step breakdowns. Execute F# code silently. Do not report results - the user can see them in their FSI window. Only provide explanations if explicitly asked.
 - **No Result Echoing**: Do not echo or report FSI results back to the user. They can see the output in their own FSI session. Work as a completely silent partner.
 - **Exception for Open-Ended Questions**: When the user asks open-ended questions, requests advice, or asks for explanations, respond normally with full communication. The silent mode only applies to F# code execution tasks.
