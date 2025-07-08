@@ -37,11 +37,18 @@ When executing F# code, follow this file-based workflow:
 ### 2. Send Code to FSI via File Drop
 Create a timestamped .fsx file in the pending directory:
 
+**CRITICAL**: Use the Write tool to create files, NOT bash echo/cat commands, to avoid shell interpretation of F# pipe operators (`|>`).
+
 ```bash
-# CRITICAL: Generate unique filename and store in variable for response lookup
+# 1. Generate unique timestamp
 timestamp=$(date +%Y%m%d-%H%M%S)
-echo "YOUR_FSHARP_CODE;;" > "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx"
+
+# 2. Use Write tool to create file (preserves F# syntax correctly)
+Write tool: "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx"
+Content: "YOUR_FSHARP_CODE;;"
 ```
+
+**Why Write tool is required**: Bash commands like `echo` and `cat` with heredoc interpret the `|>` pipe operator and replace it with `< /dev/null | >`, breaking F# code. The Write tool preserves all F# syntax exactly as written.
 
 ### 3. Read FSI Response
 After file processing, check the response file using the SAME timestamp:
@@ -69,23 +76,24 @@ sleep 2 && cat "$response_file"
 # 1. Add to collaborative script (WITHOUT ;; and no attribution comments)
 Edit scratch.fsx to append: let result = 42 * 2
 
-# 2. Execute in FSI via file drop - CRITICAL: Use same timestamp variable
+# 2. Execute in FSI via file drop - CRITICAL: Use Write tool, not bash commands
 timestamp=$(date +%Y%m%d-%H%M%S)
-echo "let result = 42 * 2;;" > "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx"
+Write tool: "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx"
+Content: "let result = 42 * 2;;"
 
 # 3. Read response using SAME timestamp variable
 sleep 2 && cat "/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
 
-# Multi-line function definitions:
+# Multi-line function definitions - CRITICAL: Use Write tool for pipe operators
 timestamp=$(date +%Y%m%d-%H%M%S)
-cat > "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx" << 'EOF'
-let findGuard (grid: Grid) =
+Write tool: "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx"
+Content: "let findGuard (grid: Grid) =
     grid
     |> List.mapi (fun r row ->
         row |> Seq.mapi (fun c cell -> (r, c), cell)
         |> Seq.filter (fun (_, cell) -> cell <> '.'))
-    |> List.collect id |> List.head;;
-EOF
+    |> List.collect id |> List.head;;"
+
 sleep 2 && cat "/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
 
 # 4. Work silently - user sees results in their FSI session
@@ -221,10 +229,12 @@ run ()
 ## File Protocol Advantages
 
 The file-based protocol eliminates the HTTP encoding issues:
-- **No pipe escaping**: `|>` works naturally in files
+- **No pipe escaping**: `|>` works naturally in files when using Write tool
 - **No URL encoding**: Multi-line code blocks work perfectly
-- **No shell interpretation**: All F# syntax supported
+- **No shell interpretation**: F# syntax preserved exactly when avoiding bash echo/cat
 - **Response persistence**: Complete FSI interaction history in response files
 - **Atomic operations**: File system ensures complete writes
+
+**CRITICAL**: Always use the Write tool (not bash commands) to create .fsx files. Bash commands like `echo` and `cat` with heredoc interpret F# pipe operators (`|>`) and replace them with `< /dev/null | >`, breaking F# code syntax.
 
 This workflow creates a persistent, collaborative F# workspace where code is both executed immediately and preserved for future reference.
