@@ -1,22 +1,25 @@
 # FSI Server Integration Guide for Claude Code
 
-This guide explains how to collaborate with the FSI server through HTTP API and file monitoring.
+This guide explains how to collaborate with the FSI server through the file-based protocol.
 
-## Active FSI Session Integration
+## File-Based FSI Session Integration
 
-**Configuration**: Set your FSI server hostname:
-```bash
-FSI_HOST="http://G1SGSG3.mshome.net:8080"  # Replace with your FSI server host
+**Directory Structure**: The FSI server monitors these directories:
+```
+c:/tmp/fsi-claude/
+├── pending/     # Drop .fsx files here for execution
+├── processing/  # Files currently being processed
+├── completed/   # Successfully processed files
+└── responses/   # Response .log files with FSI output
 ```
 
-The FSI server endpoints:
-- **HTTP API**: `${FSI_HOST}/send?source=claude`
-- **Session Log**: `/mnt/c/tmp/fsi-session.log`
-- **Collaborative Script**: you will prompt me for the fsx file we will be collaborating on.
+**Session Logs**:
+- **Main Log**: `/mnt/c/tmp/fsi-session.log` - Complete session history
+- **Response Files**: `c:/tmp/fsi-claude/responses/*.log` - Individual command responses
 
 ## Workflow for F# Code Execution
 
-When executing F# code, follow this dual-action workflow:
+When executing F# code, follow this file-based workflow:
 
 ### 1. Add Code to Collaborative Script **FIRST**
 **CRITICAL WORKFLOW**: ALWAYS add code to the .fsx file FIRST using the Edit tool, THEN send to FSI. This maintains the collaborative script as the authoritative source.
@@ -31,21 +34,34 @@ When executing F# code, follow this dual-action workflow:
 
 **NEVER** develop substantial code only in FSI - the .fsx file is our collaborative workspace and must stay current.
 
-### 2. Send Code to FSI
+### 2. Send Code to FSI via File Drop
+Create a timestamped .fsx file in the pending directory:
+
 ```bash
-curl -X POST "${FSI_HOST}/send?source=claude" -d $'YOUR_FSHARP_CODE;;'
+# CRITICAL: Generate unique filename and store in variable for response lookup
+timestamp=$(date +%Y%m%d-%H%M%S)
+echo "YOUR_FSHARP_CODE;;" > "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx"
 ```
 
-**CRITICAL PIPE HANDLING**: Always use `$'...'` syntax and escape ALL pipe characters as `\u007C` (Unicode escape) to prevent shell interpretation:
-- **Pipeline operators**: `\u007C>` instead of `|>`
-- **Pattern matching**: `\u007C 1 \u007C 2` instead of `| 1 | 2`
-- **Function definitions**: `function \u007C '^' -> Up` instead of `function | '^' -> Up`
+### 3. Read FSI Response
+After file processing, check the response file using the SAME timestamp:
 
-The shell interprets literal `|` as pipe operators, causing FSI syntax errors. Use Unicode escapes for ALL pipe characters in curl commands.
+```bash
+# CRITICAL: Use the SAME timestamp variable to read the matching response
+response_file="/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
+# Wait briefly for processing, then read the complete FSI interaction
+sleep 2 && cat "$response_file"
+```
 
+**Response format**:
+```
+[14:32:15.123] INPUT (claude-file): let x = 42;;
+[14:32:15.234] OUTPUT: val x : int = 42
+[14:32:15.235] STATUS: sent-to-fsi
+```
 
-### 3. Validate Execution
-**CRITICAL**: After sending code to FSI, ALWAYS check the FSI session log for errors before reporting completion. Use `tail -n 20 /mnt/c/tmp/fsi-session.log` to verify the code executed successfully. If there are compilation errors, runtime errors, or any failures, ALERT the user immediately with "ALERT: We have a problem!" and describe the specific error. NEVER report work as "done" or "complete" if there are any errors in the log.
+### 4. Validate Execution
+**CRITICAL**: After sending code to FSI, ALWAYS check the response file for errors before reporting completion. If there are compilation errors, runtime errors, or any failures, ALERT the user immediately with "ALERT: We have a problem!" and describe the specific error. NEVER report work as "done" or "complete" if there are any errors in the response.
 
 ## Example Execution Pattern
 
@@ -53,31 +69,34 @@ The shell interprets literal `|` as pipe operators, causing FSI syntax errors. U
 # 1. Add to collaborative script (WITHOUT ;; and no attribution comments)
 Edit scratch.fsx to append: let result = 42 * 2
 
-# 2. Execute in FSI (with ;; and Unicode escapes for pipes)
-curl -X POST "${FSI_HOST}/send?source=claude" -d $'let result = 42 * 2;;'
+# 2. Execute in FSI via file drop - CRITICAL: Use same timestamp variable
+timestamp=$(date +%Y%m%d-%H%M%S)
+echo "let result = 42 * 2;;" > "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx"
 
-# Pipeline operators:
-curl -X POST "${FSI_HOST}/send?source=claude" -d $'[1;2;3] \u007C> List.map (fun x -> x * 2);;'
-
-# Pattern matching:
-curl -X POST "${FSI_HOST}/send?source=claude" -d $'match x with \u007C 1 \u007C 2 -> "small" \u007C _ -> "large";;'
+# 3. Read response using SAME timestamp variable
+sleep 2 && cat "/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
 
 # Multi-line function definitions:
-curl -X POST "${FSI_HOST}/send?source=claude" -d $'let findGuard (grid: Grid) =
+timestamp=$(date +%Y%m%d-%H%M%S)
+cat > "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx" << 'EOF'
+let findGuard (grid: Grid) =
     grid
-    \u007C> List.mapi (fun r row ->
-        row \u007C> Seq.mapi (fun c cell -> (r, c), cell)
-        \u007C> Seq.filter (fun (_, cell) -> cell <> \'.\'))
-    \u007C> List.collect id \u007C> List.head;;'
+    |> List.mapi (fun r row ->
+        row |> Seq.mapi (fun c cell -> (r, c), cell)
+        |> Seq.filter (fun (_, cell) -> cell <> '.'))
+    |> List.collect id |> List.head;;
+EOF
+sleep 2 && cat "/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
 
-# 3. Work silently - user sees results in their FSI session
+# 4. Work silently - user sees results in their FSI session
 ```
 
 ## Key Principles
 
-- **Dual Actions**: Always both execute in save to script file AND send to FSI
+- **File-Based Protocol**: Drop .fsx files, read .log responses - no HTTP encoding issues
+- **Dual Actions**: Always both save to script file AND send to FSI
 - **No Attribution**: Don't mark code as "Added by Claude" - we collaborate seamlessly
-- **Monitor Log**: Check session log for FSI responses and errors
+- **Monitor Responses**: Check response files for FSI output and errors
 - **Preserve Context**: The fsx file maintains our collaborative session state
 - **Silent Collaboration**: NEVER explain calculations or provide step-by-step breakdowns. Execute F# code silently. Do not report results - the user can see them in their FSI window. Only provide explanations if explicitly asked.
 - **No Result Echoing**: Do not echo or report FSI results back to the user. They can see the output in their own FSI session. Work as a completely silent partner.
@@ -199,11 +218,13 @@ run ()
 - **Debug output**: `printfn` statements for debugging
 - **Self-contained**: Each file is a complete, runnable test suite
 
-## Available API Endpoints
+## File Protocol Advantages
 
-- `POST ${FSI_HOST}/send?source=claude` - Execute F# code in FSI
-- `POST ${FSI_HOST}/sync-file?file=path` - Sync entire .fsx file to FSI
-- `GET ${FSI_HOST}/output?lines=N` - Get recent FSI output
-- `GET ${FSI_HOST}/status` - Check FSI process status
+The file-based protocol eliminates the HTTP encoding issues:
+- **No pipe escaping**: `|>` works naturally in files
+- **No URL encoding**: Multi-line code blocks work perfectly
+- **No shell interpretation**: All F# syntax supported
+- **Response persistence**: Complete FSI interaction history in response files
+- **Atomic operations**: File system ensures complete writes
 
 This workflow creates a persistent, collaborative F# workspace where code is both executed immediately and preserved for future reference.
