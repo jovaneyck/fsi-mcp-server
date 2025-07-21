@@ -11,7 +11,7 @@ open ModelContextProtocol.Server
 
 [<McpServerToolType>]
 type EchoTool() =
-    
+   
     [<McpServerTool>]
     [<Description("Echoes the message back to the client.")>]
     static member Echo(message: string) : string = 
