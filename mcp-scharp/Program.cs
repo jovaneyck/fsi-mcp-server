@@ -1,30 +1,36 @@
 ﻿//How to test: https://github.com/modelcontextprotocol/inspector
+//λ npm i -g @modelcontextprotocol/server-everything
 //npx @modelcontextprotocol/inspector dotnet run
 
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using ModelContextProtocol.Server;
 using System.ComponentModel;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using ModelContextProtocol.Server;
 
-Console.WriteLine("Hello, World!");
+var builder = WebApplication.CreateBuilder(args);
 
-var builder = Host.CreateApplicationBuilder(args);
-builder.Logging.AddConsole(consoleLogOptions =>
-{
-    // Configure all logs to go to stderr
-    consoleLogOptions.LogToStandardErrorThreshold = LogLevel.Trace;
-});
-
+// Add MCP server services with HTTP transport
 builder.Services
     .AddMcpServer()
-    .WithStdioServerTransport()
-    .WithToolsFromAssembly();
+    .WithHttpTransport()
+    .WithTools<EchoTool>();
 
-await builder.Build().RunAsync();
+var app = builder.Build();
+
+// Configure the HTTP request pipeline
+
+app.UseDeveloperExceptionPage();
+
+// Map MCP endpoints
+app.MapMcp();
+
+// Add a simple home page
+app.MapGet("/status", () => "MCP Server - Ready for use with HTTP transport");
+
+app.Run();
 
 [McpServerToolType]
-public static class EchoTool
+public class EchoTool
 {
     [McpServerTool, Description("Echoes the message back to the client.")]
     public static string Echo(string message) => $"Hello from C#: {message}";
