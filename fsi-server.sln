@@ -2,7 +2,9 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "fsi-server", "server/fsi-server.fsproj", "{66A6FBF4-A123-4D56-8C1E-A2A28A67BF62}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mcp-scharp", "mcp-scharp\mcp-scharp.csproj", "{21D39D84-D506-4A50-AB94-E030706B57F8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mcp-csharp", "mcp-csharp\mcp-csharp.csproj", "{21D39D84-D506-4A50-AB94-E030706B57F8}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "mcp-fsharp", "mcp-fsharp\mcp-fsharp.fsproj", "{D5DC7A37-B990-411B-A221-9B3B5CCFBB36}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,5 +20,9 @@ Global
 		{21D39D84-D506-4A50-AB94-E030706B57F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{21D39D84-D506-4A50-AB94-E030706B57F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{21D39D84-D506-4A50-AB94-E030706B57F8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5DC7A37-B990-411B-A221-9B3B5CCFBB36}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5DC7A37-B990-411B-A221-9B3B5CCFBB36}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5DC7A37-B990-411B-A221-9B3B5CCFBB36}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5DC7A37-B990-411B-A221-9B3B5CCFBB36}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

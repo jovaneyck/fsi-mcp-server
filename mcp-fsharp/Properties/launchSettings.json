@@ -1,6 +1,6 @@
 ﻿{
   "profiles": {
-    "mcp-scharp": {
+    "mcp-fsharp2": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": false,
