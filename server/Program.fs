@@ -1,4 +1,5 @@
 open System
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
@@ -15,8 +16,6 @@ let main args =
     builder.Services.AddSingleton<FsiService.FsiService>()
     |> ignore
 
-    builder.Services.AddHostedService<ConsoleInputService.ConsoleInputService>()
-    |> ignore
 
     // Add MCP server services with HTTP transport for streaming
     builder
@@ -70,6 +69,19 @@ let main args =
     status |> Seq.iter (printfn "%s")
     printfn "Press Ctrl+C to stop"
     printfn ""
+
+    // Start console input forwarding in background
+    let consoleTask = Task.Run(fun () ->
+        try
+            printfn "💬 Console input forwarding started. Type F# commands directly:"
+            while true do
+                let line = Console.ReadLine()
+                if not (isNull line) then
+                    match fsiService.SendToFsi(line, FsiService.FsiInputSource.Console) with
+                    | Ok _ -> ()
+                    | Error msg -> printfn $"Console input error: {msg}"
+        with
+        | ex -> printfn $"Console input service error: {ex.Message}")
 
     // Run the application
     app.Run()

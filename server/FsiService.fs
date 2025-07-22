@@ -78,9 +78,12 @@ type FsiService(logger: ILogger<FsiService>) =
             let timestamp = DateTime.Now.ToString("HH:mm:ss.fff")
             let sourceName = getSourceName source
             let inputLog = $"[%s{timestamp}] INPUT (%s{sourceName}): %s{code.Trim()}"
-            // Console.WriteLine $"(%s{sourceName})> %s{code.Trim()}"
+            Console.WriteLine $"(%s{sourceName})> %s{code.Trim()}"
             //TODO: mcp input streaming
-            proc.StandardInput.WriteLine(code)
+            let codeWithTerminator = 
+                if code.Trim().EndsWith(";;") then code
+                else code.TrimEnd() + ";;"
+            proc.StandardInput.WriteLine(codeWithTerminator)
             proc.StandardInput.Flush()
             
             Ok "Code sent to FSI and logged"
