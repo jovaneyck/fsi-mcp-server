@@ -1,10 +1,11 @@
 ﻿{
   "profiles": {
-    "mcp-fsharp": {
+    "fsi-server": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": false,
-      "applicationUrl": "http://0.0.0.0:5010;https://0.0.0.0:5001",
+      "applicationUrl": "http://0.0.0.0:5020",
+      "_why_weird_applicationUrl" : "wsl2 networking stuff",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
