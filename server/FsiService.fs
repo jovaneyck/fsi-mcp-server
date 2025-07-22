@@ -3,21 +3,60 @@ module FsiService
 open System
 open System.IO
 open System.Diagnostics
-open System.Text
 open Microsoft.Extensions.Logging
+open System.Collections.Concurrent
+open ModelContextProtocol.Server
 
 type FsiInputSource = 
     | Console 
     | Api of string
     | FileSync of string
 
+type FsiEvent = {
+    EventType: string
+    Source: string 
+    Content: string
+    Timestamp: string
+    SessionId: string
+}
+
 type FsiService(logger: ILogger<FsiService>) =  
     let mutable fsiProcess: Process option = None
+    let sessionId = Guid.NewGuid().ToString("N")[..7] // Short session ID
+    let eventQueue = ConcurrentQueue<FsiEvent>()
+    let mutable maxQueueSize = 1000
+    let mutable mcpServer: IMcpServer option = None
+    
+    // Event handler for immediate notifications
+    let eventHandlers = System.Collections.Generic.List<FsiEvent -> unit>()
 
     let getSourceName = function
         | Console -> "console"
-        | Api source -> source
-        | FileSync path -> path
+        | Api source -> $"api:{source}"
+        | FileSync path -> $"file:{path}"
+    
+    let createFsiEvent eventType source content =
+        {
+            EventType = eventType
+            Source = source
+            Content = content 
+            Timestamp = DateTime.UtcNow.ToString("O")
+            SessionId = sessionId
+        }
+    
+    let addEvent (event: FsiEvent) =
+        eventQueue.Enqueue(event)
+        // Keep queue size manageable
+        if eventQueue.Count > maxQueueSize then
+            let mutable dummy = Unchecked.defaultof<FsiEvent>
+            eventQueue.TryDequeue(&dummy) |> ignore
+        
+        // Immediately notify all handlers (for real-time push)
+        for handler in eventHandlers do
+            try
+                handler event
+            with
+            | ex -> logger.LogWarning($"Event handler error: {ex.Message}")
 
     member _.StartFsi(args: string[]) =
         let fsiArgs = 
@@ -48,7 +87,10 @@ type FsiService(logger: ILogger<FsiService>) =
                         let timestamp = DateTime.Now.ToString("HH:mm:ss.fff")
                         let logLine = $"[%s{timestamp}] %s{line}"
                         Console.WriteLine(line)  // Show FSI output on console as normal
-                        //TODO: mcp output streaming
+                        
+                        // Add output event to queue
+                        let event = createFsiEvent "output" "fsi" line
+                        addEvent event
             with
             | ex -> logger.LogError($"Output monitoring error: %s{ex.Message}")
         } |> Async.Start
@@ -62,7 +104,10 @@ type FsiService(logger: ILogger<FsiService>) =
                         let timestamp = DateTime.Now.ToString("HH:mm:ss.fff")
                         let logLine = $"[%s{timestamp}] ERROR: %s{line}"
                         Console.WriteLine $"ERROR: %s{line}"
-                        //TODO: mcp output streaming
+                        
+                        // Add error event to queue
+                        let event = createFsiEvent "error" "fsi" line
+                        addEvent event
             with
             | ex -> logger.LogError($"Error monitoring error: %s{ex.Message}")
         } |> Async.Start
@@ -80,9 +125,10 @@ type FsiService(logger: ILogger<FsiService>) =
             let inputLog = $"[%s{timestamp}] INPUT (%s{sourceName}): %s{code.Trim()}"
             if source <> Console then
                 Console.WriteLine $"(%s{sourceName})> %s{code.Trim()}"
-            else
-                ()
-                //TODO: mcp input streaming
+            
+            // Add input event to queue
+            let event = createFsiEvent "input" sourceName (code.Trim())
+            addEvent event
             let codeWithTerminator = 
                 if code.Trim().EndsWith(";;") then code
                 else code.TrimEnd() + ";;"
@@ -111,6 +157,26 @@ type FsiService(logger: ILogger<FsiService>) =
         else
             Error $"File not found: %s{filePath}"
 
+    member _.GetRecentEvents(count: int) =
+        eventQueue.ToArray()
+        |> Array.rev
+        |> Array.take (min count eventQueue.Count)
+        |> Array.rev
+    
+    member _.GetAllEvents() =
+        eventQueue.ToArray()
+    
+    member _.GetSessionId() = sessionId
+    
+    member _.SetMcpServer(server: IMcpServer) =
+        mcpServer <- Some server
+        
+    member _.AddEventHandler(handler: FsiEvent -> unit) =
+        eventHandlers.Add(handler)
+        
+    member _.RemoveEventHandler(handler: FsiEvent -> unit) =
+        eventHandlers.Remove(handler) |> ignore
+    
     member _.Cleanup() =        
         match fsiProcess with
         | Some proc when not proc.HasExited ->

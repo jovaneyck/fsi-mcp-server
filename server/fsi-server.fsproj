@@ -8,6 +8,9 @@
 
     <ItemGroup>
         <Compile Include="FsiService.fs" />
+        <Compile Include="FsiEventNotificationService.fs" />
+        <Compile Include="FsiSseService.fs" />
+        <Compile Include="FsiMcpResourceService.fs" />
         <Compile Include="FsiMcpTools.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>

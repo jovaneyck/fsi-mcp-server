@@ -7,6 +7,7 @@ open System.ComponentModel
 open System.Linq
 open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.AspNetCore.HttpOverrides
 open ModelContextProtocol.Server
 
 [<McpServerToolType>]
@@ -28,6 +29,7 @@ let main args =
 
     // Add MCP server services with HTTP transport
     builder.Services
+        .AddCors()
         .AddMcpServer()
         .WithHttpTransport()
         .WithTools<EchoTool>()
@@ -37,12 +39,22 @@ let main args =
 
     // Configure the HTTP request pipeline
     app.UseDeveloperExceptionPage() |> ignore
+    
+    // Add CORS for external access from WSL2
+    app.UseCors(fun policy -> 
+        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod() |> ignore
+    ) |> ignore
+
+    // Disable strict host header checking for WSL2 access
+    let forwardedHeadersOptions = ForwardedHeadersOptions()
+    forwardedHeadersOptions.ForwardedHeaders <- ForwardedHeaders.XForwardedHost ||| ForwardedHeaders.XForwardedProto
+    app.UseForwardedHeaders(forwardedHeadersOptions) |> ignore
 
     // Map MCP endpoints
     app.MapMcp() |> ignore
 
     // Add a simple home page
-    app.MapGet("/status", Func<string>(fun () -> "MCP Server - Ready for use with HTTP transport"))
+    app.MapGet("/status", Func<string>(fun () -> "F# MCP Server - Ready for use with HTTP transport"))
     |> ignore
 
     app.Run()

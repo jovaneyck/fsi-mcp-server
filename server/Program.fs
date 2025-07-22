@@ -1,10 +1,11 @@
 open System
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Hosting
+open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
+open ModelContextProtocol.Server
 
 [<EntryPoint>]
 let main args =
@@ -18,9 +19,36 @@ let main args =
     // Add services
     builder.Services.AddSingleton<FsiService.FsiService>()
     |> ignore
+    
+    // Add the FSI event buffer service (simplified approach)
+    builder.Services.AddSingleton<FsiEventNotificationService.FsiEventNotificationService>()
+    |> ignore
+    
+    builder.Services.AddHostedService(fun serviceProvider ->
+        serviceProvider.GetRequiredService<FsiEventNotificationService.FsiEventNotificationService>()
+    ) |> ignore
+    
+    builder.Services.AddHostedService(fun serviceProvider ->
+        serviceProvider.GetRequiredService<FsiMcpResourceService.FsiMcpResourceService>()
+    ) |> ignore
+    
+    // Add FSI Server-Sent Events service for real-time streaming
+    builder.Services.AddSingleton<FsiSseService.FsiSseService>()
+    |> ignore
+    
+    // Add FSI MCP Resource service for proper MCP resource subscriptions
+    builder.Services.AddSingleton<FsiMcpResourceService.FsiMcpResourceService>()
+    |> ignore
 
 
-    // Add MCP server services with HTTP transport for streaming
+    // Register FsiTools with dependencies  
+    builder.Services.AddSingleton<FsiMcpTools.FsiTools>(fun serviceProvider ->
+        let fsiService = serviceProvider.GetRequiredService<FsiService.FsiService>()
+        let resourceService = serviceProvider.GetRequiredService<FsiMcpResourceService.FsiMcpResourceService>()
+        new FsiMcpTools.FsiTools(fsiService, resourceService)
+    ) |> ignore
+    
+    // Add MCP server services with HTTP transport and resource subscriptions
     builder
         .Services
         .AddMcpServer()
@@ -33,6 +61,19 @@ let main args =
     // Start FSI service
     let fsiService = app.Services.GetRequiredService<FsiService.FsiService>()
     let fsiProcess = fsiService.StartFsi(args)
+    
+    // Start SSE streaming service (temporarily disabled)
+    // let sseService = app.Services.GetRequiredService<FsiSseService.FsiSseService>()
+    // sseService.StartStreaming()
+    
+    // Start MCP Resource service 
+    let resourceService = app.Services.GetRequiredService<FsiMcpResourceService.FsiMcpResourceService>()
+    // TODO: Connect to MCP server for notifications once the API is figured out
+    // Resource service will start automatically as a hosted service
+    
+    // Start SSE streaming service
+    let sseService = app.Services.GetRequiredService<FsiSseService.FsiSseService>()
+    sseService.StartStreaming()
 
     // Configure middleware pipeline
     app.UseDeveloperExceptionPage() |> ignore
@@ -41,19 +82,58 @@ let main args =
     app.MapMcp() |> ignore
 
     let status =
-        [ "🚀 FSI Server with MCP Integration"
+        [ "🚀 FSI Server with MCP Resource Subscription + Server-Sent Events"
+          ""
+          "🔗 MCP RESOURCE SUBSCRIPTION (RECOMMENDED):"
+          "   - Resource URI: fsi://events/stream"
+          "   - Subscribe via MCP Inspector or MCP client"
+          "   - Receives notifications/resources/updated on FSI activity"
+          "   - Standard MCP protocol - works with all MCP clients"
+          ""
+          "🌊 SERVER-SENT EVENTS (DIRECT ACCESS):"
+          "   - GET /fsi/stream - Real-time SSE endpoint"
+          "   - Events: 'connected', 'fsi_event'"
+          "   - Direct browser/curl access for testing"
+          "   - JSON payloads with full FSI event data"
           ""
           "🛠️  MCP Tools Available:"
-          "   - SendFSharpCode: Execute F# code in the active FSI process"
-          "   - LoadFSharpScript: Load entire .fsx files into the active FSI process"
-          "   - GetFsiStatus: Get server information"
+          "   - SendFSharpCode: Execute F# code"
+          "   - LoadFSharpScript: Load .fsx files"
+          "   - GetFsiEventStream: Access FSI resource"
+          "   - GetFsiStatus: Get session info"
           ""
           "💡 Usage Modes:"
-          "   💬 Console Mode: Type F# commands directly into console, this app acts as a wrapper around fsi.exe"
-          "   🤖 MCP Mode: Use MCP client tools" ]
+          "   💬 Console: Type F# commands (streams via both MCP + SSE)"
+          "   🤖 MCP: Use tools (streams via both MCP + SSE)"
+          "   🔍 Inspector: Subscribe to fsi://events/stream resource"
+          "   🌊 Browser: Connect to /fsi/stream for live events" ]
 
     app.MapGet("/health", Func<string>(fun () -> "Up and running"))
     |> ignore
+    
+    // Add FSI Server-Sent Events endpoint for real-time streaming
+    app.MapGet("/fsi/stream", Func<HttpContext, Task>(fun context ->
+        let sseService = app.Services.GetRequiredService<FsiSseService.FsiSseService>()
+        sseService.HandleSseConnection(context)
+    )) |> ignore
+    
+    // Add FSI Server-Sent Events endpoint for real-time streaming (temporarily disabled)
+    // app.MapGet("/fsi/stream", Func<HttpContext, Task>(fun context ->
+    //     let sseService = app.Services.GetRequiredService<FsiSseService.FsiSseService>()
+    //     sseService.HandleSseConnection(context)
+    // )) |> ignore
+    
+    // Add FSI events API endpoint for MCP clients (fallback)
+    app.MapGet("/fsi/events", Func<string>(fun () ->
+        let eventService = app.Services.GetRequiredService<FsiEventNotificationService.FsiEventNotificationService>()
+        let events = eventService.GetEventStream()
+        if events.Length = 0 then
+            "{\"events\": [], \"message\": \"No FSI events yet\"}"
+        else
+            let result = {| events = events; total = events.Length |}
+            System.Text.Json.JsonSerializer.Serialize(result)
+    )) |> ignore
+    
     // Add a simple status page
     app.MapGet("/", Func<string>(fun () -> String.concat "\n" status))
     |> ignore
@@ -61,11 +141,14 @@ let main args =
     // Setup cleanup on shutdown
     let lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>()
 
-    lifetime.ApplicationStopping.Register(fun () -> fsiService.Cleanup())
-    |> ignore
+    lifetime.ApplicationStopping.Register(fun () -> 
+        fsiService.Cleanup()
+        sseService.StopStreaming()
+    ) |> ignore
 
     Console.CancelKeyPress.Add (fun _ ->
         fsiService.Cleanup()
+        sseService.StopStreaming()
         Environment.Exit(0))
 
     // Print startup information
