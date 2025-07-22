@@ -106,7 +106,10 @@ type FsiService(logger: ILogger<FsiService>) =
             addEvent event
             //Forward input to wrapped fsi process
             let codeWithTerminator = 
-                if code.Trim().EndsWith(";;") then code
+                let trimmed = code.Trim()
+                // Don't add ;; to F# directives (they start with #)
+                if trimmed.StartsWith("#") then trimmed
+                elif trimmed.EndsWith(";;") then code
                 else code.TrimEnd() + ";;"
             proc.StandardInput.WriteLine(codeWithTerminator)
             proc.StandardInput.Flush()

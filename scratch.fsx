@@ -1,9 +1,10 @@
 // F# Interactive Scratch File
 
-let countChar (char: char) (str: string) =
-    str.ToCharArray()
-    |> Array.filter (fun c -> c = char)
-    |> Array.length
-
 let word = "strawberry"
-let rCount = countChar 'r' word
+
+let countChar char str = 
+    str 
+    |> Seq.filter (fun c -> c = char) 
+    |> Seq.length
+
+let countRs = countChar 'r' word

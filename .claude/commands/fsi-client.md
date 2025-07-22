@@ -1,94 +1,37 @@
 # FSI Server Integration Guide for Claude Code
 
-This guide explains how to collaborate with the FSI server through the file-based protocol.
+This guide explains how to collaborate with the FSI server through the fsi-server mcp server.
 
-## File-Based FSI Session Integration
+## MCP-Based FSI Session Integration
 
-**Directory Structure**: The FSI server monitors these directories:
-```
-c:/tmp/fsi-claude/
-├── pending/     # Drop .fsx files here for execution
-├── processing/  # Files currently being processed
-├── completed/   # Successfully processed files
-└── responses/   # Response .log files with FSI output
-```
-
-**Session Logs**:
-- **Main Log**: `/mnt/c/tmp/fsi-session.log` - Complete session history
-- **Response Files**: `c:/tmp/fsi-claude/responses/*.log` - Individual command responses
+Agents send over commands through MCP and can look at fsi outputs through MCP.
+The user can also directly input statements in the fsi.exe console.
+The agent can follow along with what the user enters and the results from those statements through the MCP endpoints.
 
 ## Workflow for F# Code Execution
 
-When executing F# code, follow this file-based workflow:
+When executing F# code, follow this MCP-based workflow:
 
 ### 1. Add Code to Collaborative Script **FIRST**
-**CRITICAL WORKFLOW**: ALWAYS add code to the .fsx file FIRST using the Edit tool, THEN send to FSI. This maintains the collaborative script as the authoritative source.
-
-**For major code changes** (new functions, substantial rewrites, debugging functions):
-1. **FIRST**: Add to .fsx file using Edit tool
-2. **THEN**: Send to FSI for testing
-3. **Remove `;;`** when adding to .fsx files - only needed for FSI execution
-
-**For minor troubleshooting** (quick tests, single expressions):
-- OK to send directly to FSI without updating .fsx
+**CRITICAL WORKFLOW**: ALWAYS add code to the .fsx file FIRST using the Edit tool, THEN send to FSI over mcp.
+This maintains the collaborative script as the authoritative source of truth.
 
 **NEVER** develop substantial code only in FSI - the .fsx file is our collaborative workspace and must stay current.
 
-### 2. Send Code to FSI via File Drop
-Create a timestamped .fsx file in the pending directory:
-
-**CRITICAL**: Use the Write tool to create files, NOT bash echo/cat commands, to avoid shell interpretation of F# pipe operators (`|>`).
-
-```bash
-# 1. Generate unique timestamp
-timestamp=$(date +%Y%m%d-%H%M%S)
-
-# 2. Use Write tool to create file (preserves F# syntax correctly)
-Write tool: "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx"
-Content: "YOUR_FSHARP_CODE;;"
-```
-
-**Why Write tool is required**: Bash commands like `echo` and `cat` with heredoc interpret the `|>` pipe operator and replace it with `< /dev/null | >`, breaking F# code. The Write tool preserves all F# syntax exactly as written.
+### 2. Send Code to FSI via MCP
 
 ### 3. Read FSI Response
-After file processing, check the response file using the SAME timestamp:
-
-```bash
-# CRITICAL: Use the SAME timestamp variable to read the matching response
-response_file="/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
-# Read the complete FSI interaction (no sleep needed - Claude thinking time is sufficient)
-cat "$response_file"
-```
-
-**Response format**:
-```
-[14:32:15.123] INPUT (claude-file): let x = 42;;
-[14:32:15.234] OUTPUT: val x : int = 42
-[14:32:15.235] STATUS: sent-to-fsi
-```
+After file processing, check the response through MCP
 
 ### 4. Validate Execution
-**CRITICAL**: After sending code to FSI, ALWAYS check the response file for errors before reporting completion. If there are compilation errors, runtime errors, or any failures, ALERT the user immediately with "ALERT: We have a problem!" and describe the specific error. NEVER report work as "done" or "complete" if there are any errors in the response.
+**CRITICAL**: After sending code to FSI, ALWAYS check the fsi output through the MCP server. If there are compilation errors, runtime errors, or any failures, ALERT the user immediately with "ALERT: We have a problem!" and describe the specific error. NEVER report work as "done" or "complete" if there are any errors in the response.
 
 ### 5. FSI State Management - CRITICAL
 **FSI maintains persistent state between executions**. This creates potential inconsistencies between your .fsx file and the running FSI session.
 
-**The Problem**: 
-- You edit a function in the .fsx file (e.g., comment out debug prints)
-- FSI still has the old version with debug prints loaded
-- Sending new code doesn't automatically reload edited functions
-
-**Solutions**:
-1. **Complete fsx Reloading**: When making ANY changes to existing code, always send the COMPLETE fsx file to FSI:
-   ```fsharp
-   // Instead of just: solve input;;
-   // Send: let solve (input: string[]) : int = ...complete fsx file... 
-   //       solve input;;
-   ```
-
-2. **FSI Session Restart**: For major changes or when debug code pollutes the session:
-   - Tell user: "Please restart your FSI session to clear old function definitions"
-   - Then reload the complete .fsx file content
+**FSI Session Restart**: For major changes or when debug code pollutes the session and is causing aliasing/shadowing issues:
+   - Tell user: "Please restart your FSI session to clear all old function definitions"
+   - Then reload the complete .fsx file content over mcp
 
 ## Example Execution Pattern
 
@@ -96,35 +39,20 @@ cat "$response_file"
 # 1. Add to collaborative script (WITHOUT ;; and no attribution comments)
 Edit scratch.fsx to append: let result = 42 * 2
 
-# 2. Execute in FSI via file drop - CRITICAL: Use Write tool, not bash commands
-timestamp=$(date +%Y%m%d-%H%M%S)
-Write tool: "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx"
+# 2. Execute in FSI via MCP
 Content: "let result = 42 * 2;;"
 
-# 3. Read response using SAME timestamp variable
-cat "/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
+# 3. Read response using MCP
 
-# Multi-line function definitions - CRITICAL: Use Write tool for pipe operators
-timestamp=$(date +%Y%m%d-%H%M%S)
-Write tool: "/mnt/c/tmp/fsi-claude/pending/claude-${timestamp}.fsx"
-Content: "let findGuard (grid: Grid) =
-    grid
-    |> List.mapi (fun r row ->
-        row |> Seq.mapi (fun c cell -> (r, c), cell)
-        |> Seq.filter (fun (_, cell) -> cell <> '.'))
-    |> List.collect id |> List.head;;"
-
-cat "/mnt/c/tmp/fsi-claude/responses/claude-${timestamp}.log"
-
-# 4. Work silently - user sees results in their FSI session
+# 4. Work as a silent English-to-F# interpreter - the user sees all results in their FSI session window.
 ```
 
 ## Key Principles
 
-- **File-Based Protocol**: Drop .fsx files, read .log responses - no HTTP encoding issues
-- **Dual Actions**: Always both save to script file AND send to FSI
-- **No Attribution**: Don't mark code as "Added by Claude" - we collaborate seamlessly
-- **Monitor Responses**: Check response files for FSI output and errors
+- **MCP-Based Protocol**
+- **Dual Actions**: Always both save to script file first AND then send to FSI over MCP
+- **No Attribution**: Don't mark code as "Added by Claude" - we collaborate seamlessly as two pair programmers.
+- **Monitor Responses**: Check responses over mcp for FSI output and errors
 - **Preserve Context**: The fsx file maintains our collaborative session state
 - **FSI State Consistency**: Always ensure FSI session state matches .fsx file content - suspect stale state when unexpected behavior occurs
 - **Silent Collaboration**: NEVER explain calculations or provide step-by-step breakdowns. Execute F# code silently. Do not report results - the user can see them in their FSI window. Only provide explanations if explicitly asked.
@@ -247,19 +175,6 @@ run ()
 - **Debug output**: `printfn` statements for debugging
 - **Self-contained**: Each file is a complete, runnable test suite
 
-## File Protocol Advantages
-
-The file-based protocol eliminates the HTTP encoding issues:
-- **No pipe escaping**: `|>` works naturally in files when using Write tool
-- **No URL encoding**: Multi-line code blocks work perfectly
-- **No shell interpretation**: F# syntax preserved exactly when avoiding bash echo/cat
-- **Response persistence**: Complete FSI interaction history in response files
-- **Atomic operations**: File system ensures complete writes
-
-**CRITICAL**: Always use the Write tool (not bash commands) to create .fsx files. Bash commands like `echo` and `cat` with heredoc interpret F# pipe operators (`|>`) and replace them with `< /dev/null | >`, breaking F# code syntax.
-
-This workflow creates a persistent, collaborative F# workspace where code is both executed immediately and preserved for future reference.
-
 ## Human Text to F# Interpreter Mode
 
 When working with a specific .fsx file (like scratch.fsx), Claude automatically switches to **Human Text to F# Interpreter Mode**:
@@ -285,8 +200,8 @@ When working with a specific .fsx file (like scratch.fsx), Claude automatically 
 ### Workflow in Interpreter Mode
 1. **Parse Intent**: Understand what F# code is needed
 2. **Generate Code**: Create idiomatic F# following style guide
-3. **Dual Action**: Add to .fsx file + send to FSI
-4. **Validate**: Check response file for errors
+3. **Dual Action**: First add or edit code to .fsx file + ONLY THEN send to FSI over mcp server
+4. **Validate**: Check fsi outputs over mcp for errors
 5. **Alert if Needed**: Report problems immediately
 
-This mode transforms Claude into a transparent F# execution layer, making the collaboration feel like direct F# programming with immediate feedback.
+This mode transforms Claude into a transparent English-to-F# execution layer, making the collaboration feel like direct F# programming with immediate feedback.
