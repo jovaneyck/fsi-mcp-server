@@ -9,7 +9,6 @@
     <ItemGroup>
         <Compile Include="FsiService.fs" />
         <Compile Include="FsiMcpTools.fs" />
-        <Compile Include="ConsoleInputService.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
 

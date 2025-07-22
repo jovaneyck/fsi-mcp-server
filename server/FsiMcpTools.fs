@@ -8,8 +8,8 @@ type FsiTools(fsiService: FsiService.FsiService) =
     
     [<McpServerTool>]
     [<Description("Send F# code to the FSI (F# Interactive) session for execution.")>]
-    member _.SendFSharpCode(code: string) : string = 
-        match fsiService.SendToFsi(code, FsiService.FsiInputSource.Api "mcp") with
+    member _.SendFSharpCode(agentName: string, code: string) : string = 
+        match fsiService.SendToFsi(code, FsiService.FsiInputSource.Api agentName) with
         | Ok result -> result
         | Error msg -> $"Error: {msg}"
     

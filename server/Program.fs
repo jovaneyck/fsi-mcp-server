@@ -1,6 +1,7 @@
 open System
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
@@ -9,9 +10,11 @@ open Microsoft.Extensions.Logging
 let main args =
     let builder = WebApplication.CreateBuilder(args)
 
-    // Configure logging
-    builder.Logging.AddConsole() |> ignore
-
+    // Configure logging - redirect ASP.NET logs away from console to keep FSI I/O clean
+    builder.Logging.ClearProviders() |> ignore
+    builder.Logging.AddDebug() |> ignore
+    builder.Logging.SetMinimumLevel(LogLevel.Warning) |> ignore
+    
     // Add services
     builder.Services.AddSingleton<FsiService.FsiService>()
     |> ignore
