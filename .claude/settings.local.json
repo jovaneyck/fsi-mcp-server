@@ -5,7 +5,12 @@
       "WebFetch(domain:adventofcode.com)",
       "Bash(mkdir:*)",
       "Bash(curl:*)",
-      "Bash(ip route:*)"
+      "Bash(ip route:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(dotnet add:*)",
+      "Bash(timeout:*)",
+      "Bash(true)",
+      "Bash(pkill:*)"
     ],
     "deny": []
   }
