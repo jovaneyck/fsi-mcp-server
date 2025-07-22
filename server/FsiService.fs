@@ -78,8 +78,11 @@ type FsiService(logger: ILogger<FsiService>) =
             let timestamp = DateTime.Now.ToString("HH:mm:ss.fff")
             let sourceName = getSourceName source
             let inputLog = $"[%s{timestamp}] INPUT (%s{sourceName}): %s{code.Trim()}"
-            Console.WriteLine $"(%s{sourceName})> %s{code.Trim()}"
-            //TODO: mcp input streaming
+            if source <> Console then
+                Console.WriteLine $"(%s{sourceName})> %s{code.Trim()}"
+            else
+                ()
+                //TODO: mcp input streaming
             let codeWithTerminator = 
                 if code.Trim().EndsWith(";;") then code
                 else code.TrimEnd() + ";;"
