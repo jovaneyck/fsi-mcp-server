@@ -104,14 +104,8 @@ type FsiService(logger: ILogger<FsiService>) =
             // Add input event to queue
             let event = createFsiEvent "input" sourceName (code.Trim())
             addEvent event
-            //Forward input to wrapped fsi process
-            let codeWithTerminator = 
-                let trimmed = code.Trim()
-                // Don't add ;; to F# directives (they start with #)
-                if trimmed.StartsWith("#") then trimmed
-                elif trimmed.EndsWith(";;") then code
-                else code.TrimEnd() + ";;"
-            proc.StandardInput.WriteLine(codeWithTerminator)
+            //Forward input to wrapped fsi process - send raw input
+            proc.StandardInput.WriteLine(code)
             proc.StandardInput.Flush()
             
             Ok "Code sent to FSI and logged"

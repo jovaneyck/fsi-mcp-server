@@ -19,6 +19,7 @@ This maintains the collaborative script as the authoritative source of truth.
 **NEVER** develop substantial code only in FSI - the .fsx file is our collaborative workspace and must stay current.
 
 ### 2. Send Code to FSI via MCP
+**CRITICAL**: All F# code sent via MCP must end with `;;` to execute.
 
 ### 3. Read FSI Response
 After file processing, check the response through MCP
@@ -39,7 +40,7 @@ After file processing, check the response through MCP
 # 1. Add to collaborative script (WITHOUT ;; and no attribution comments)
 Edit scratch.fsx to append: let result = 42 * 2
 
-# 2. Execute in FSI via MCP
+# 2. Execute in FSI via MCP (WITH ;; at the end of the content)
 Content: "let result = 42 * 2;;"
 
 # 3. Read response using MCP
