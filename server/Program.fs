@@ -1,11 +1,10 @@
 open System
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
-open ModelContextProtocol.Server
 
 [<EntryPoint>]
 let main args =
@@ -31,8 +30,11 @@ let main args =
         .WithTools<FsiMcpTools.FsiTools>()
     |> ignore
 
+    builder.WebHost.UseUrls("http://0.0.0.0:5020")
+    |> ignore
+    
     let app = builder.Build()
-
+    
     // Start FSI service
     let fsiService = app.Services.GetRequiredService<FsiService.FsiService>()
     let fsiProcess = fsiService.StartFsi(args)
