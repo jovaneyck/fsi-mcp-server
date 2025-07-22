@@ -4,65 +4,95 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an F# Interactive (FSI) wrapper that provides a drop-in replacement for `fsi.exe` with enhanced logging and HTTP API capabilities. It intercepts all FSI input/output to a session log file while maintaining full CLI compatibility.
+FSI MCP Server is a drop-in replacement for F# Interactive (`fsi.exe`) that adds Model Context Protocol capabilities. It wraps the standard F# Interactive process while maintaining full CLI compatibility and provides programmatic access via MCP tools.
 
-## Key Architecture
+## Build and Development Commands
 
-- **Main Entry Point**: `Program.fs` - Contains the entire application logic
-- **Process Management**: Spawns a `dotnet fsi` process with CLI argument pass-through
-- **HTTP API**: Built with Suave web framework, provides REST endpoints for FSI interaction
-- **Session Logging**: All FSI input/output is logged with timestamps to `c:/tmp/fsi-session.log`
-- **Asynchronous Monitoring**: Uses async workflows to monitor FSI process output/error streams
-- **Console Forwarding**: Bidirectional console I/O forwarding for transparent FSI usage
-
-## Common Commands
-
-### Build and Run
+### Essential Commands
 ```bash
-# Build the project
+# Build the entire solution
 dotnet build
 
-# Run as FSI replacement with CLI args
-dotnet run -- --nologo --load:script.fsx
+# Run the main FSI MCP Server (starts on http://0.0.0.0:5020)
+dotnet run --project server
 
-# Run with console interaction
-dotnet run
+# Run with FSI arguments (all fsi.exe args are supported)
+dotnet run --project server -- --nologo --define:DEBUG
+
+# Build specific project
+dotnet build server/fsi-mcp-server.fsproj
+
+# Clean build artifacts
+dotnet clean
 ```
 
-### API Integration
+### Example Projects
 ```bash
-# Send code to FSI
-curl -X POST 'http://localhost:8080/send?source=claude' -d 'let x = 42;;'
+# Run C# MCP example client
+dotnet run --project mcp-csharp
 
-# Sync an F# script file to FSI
-curl -X POST 'http://localhost:8080/sync-file?file=script.fsx'
+# Run F# MCP example client  
+dotnet run --project mcp-fsharp
 ```
 
-## API Endpoints
+### Testing and Debugging
+```bash
+# Test with MCP Inspector tool
+npx @modelcontextprotocol/inspector
 
-- `POST /send?source=<name>` - Send F# code to FSI session
-- `POST /sync-file?file=<path>` - Parse and sync an .fsx file to FSI (splits on `;;` delimiters)
+# Use scratch.fsx for manual F# Interactive testing
+dotnet fsi scratch.fsx
+```
 
-## Key Features
+## Architecture Overview
 
-### CLI Compatibility
-- All command-line arguments are passed through to the FSI process (Program.fs:21-28)
-- Can be used as a drop-in replacement for `fsi.exe`
-- Maintains full FSI functionality while adding logging and HTTP API
+### Core Components
 
-### Usage Modes
-- **Console Mode**: Direct F# command input in console
-- **API Mode**: HTTP endpoints for programmatic interaction
-- **Hybrid Mode**: Mix both console input and API calls simultaneously
+1. **FsiService** (`server/FsiService.fs`): Core service that wraps `dotnet fsi` process, manages I/O interception, and handles event queuing for both console and MCP inputs.
 
-### Session Logging
-- All interactions (console + API) are logged with timestamps
-- Log file: `c:/tmp/fsi-session.log`
-- Input sources are tracked: `(console)`, `(api)`, `(file-sync:filename)`
+2. **FsiMcpTools** (`server/FsiMcpTools.fs`): Exposes MCP tools that provide programmatic access to FSI sessions:
+   - `SendFSharpCode`: Execute F# code in FSI session
+   - `LoadFSharpScript`: Load and execute .fsx files
+   - `GetRecentFsiEvents`: Access FSI event history. No streaming supported yet.
+   - `GetFsiStatus`: Get session information
 
-## Important Notes
+3. **Program.fs**: ASP.NET Core host that serves MCP endpoints with HTTP transport on `http://0.0.0.0:5020`
 
-- The server runs on `http://0.0.0.0:8080` by default
-- FSI process cleanup is handled automatically on Ctrl+C
-- API inputs are echoed to console for visibility
-- The `/sync-file` endpoint parses F# statements using `;;` delimiters and filters out comments
+### Key Features
+
+- **Hybrid Usage**: Supports simultaneous console input and MCP API calls
+- **CLI Compatibility**: Complete drop-in replacement for `fsi.exe`
+- **Event System**: Real-time streaming of FSI input/output via MCP (Server-Sent Events transport)
+- **Multi-source Tracking**: Tracks input sources (console, API, file sync)
+- **Session State**: Maintains persistent session state and event history
+
+### MCP Integration
+
+The server exposes FSI functionality through MCP tools that can be called by AI assistants or other MCP clients. All FSI interactions are captured as events and can be retrieved programmatically.
+
+## Development Notes
+
+### Target Framework
+- .NET 9.0
+- Requires `dotnet fsi` available in PATH
+
+### Key Dependencies
+- `ModelContextProtocol` (v0.3.0-preview.3): Core MCP functionality
+- `ModelContextProtocol.AspNetCore`: ASP.NET Core MCP integration
+- `Microsoft.Extensions.Hosting`: .NET hosting infrastructure
+
+### Project Structure
+- `server/`: Main FSI MCP Server implementation
+- `mcp-csharp/`: C# example MCP client
+- `mcp-fsharp/`: F# example MCP client
+- `scratch.fsx`: F# script for manual testing
+
+### Network Configuration
+- Default endpoint: `http://0.0.0.0:5020`
+- MCP transport: HTTP SSE
+- Current limitation: hardcoded IP/ports (future enhancement needed)
+
+### Integration Use Cases
+- JetBrains Rider F# Interactive replacement
+- Claude Code/AI agent integration for F# development through MCP server
+- Programmatic access to F# Interactive session IO

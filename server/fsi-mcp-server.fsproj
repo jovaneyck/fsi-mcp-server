@@ -16,8 +16,6 @@
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.7" />
       <PackageReference Include="ModelContextProtocol" Version="0.3.0-preview.3" />
       <PackageReference Include="ModelContextProtocol.AspNetCore" Version="0.3.0-preview.3" />
-      <PackageReference Include="Suave" Version="2.6.2" />
-      <PackageReference Include="Suave.AspNetCore" Version="0.4.1" />
     </ItemGroup>
 
 </Project>

@@ -2,7 +2,7 @@
 
 let word = "strawberry"
 
-let countChar char str = 
+let countChar (char : char) (str : string) : int = 
     str 
     |> Seq.filter (fun c -> c = char) 
     |> Seq.length

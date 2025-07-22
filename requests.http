@@ -1,8 +1,0 @@
-﻿###
-POST http://localhost:8080/mcp
-
-{
-    "id" : "request-123",
-    "method" : "tools/list"
-}
-###

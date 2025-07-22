@@ -20,7 +20,9 @@
       "Bash(nslookup:*)",
       "mcp__fsi-server__get_fsi_status",
       "mcp__fsi-server__send_f_sharp_code",
-      "mcp__fsi-server__get_recent_fsi_events"
+      "mcp__fsi-server__get_recent_fsi_events",
+      "Bash(dotnet --version)",
+      "Bash(dotnet sln:*)"
     ],
     "deny": []
   }
