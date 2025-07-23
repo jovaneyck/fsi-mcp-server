@@ -23,29 +23,37 @@ Using xUnit with ASP.NET Core TestServer and WebApplicationFactory for in-memory
 #### 1. Console I/O Smoke Test
 **Objective**: Verify FSI process can receive console input and produce output
 
+**Status**: ✅ **BASIC TEST WORKING** - Successfully capturing FSI startup output, but multithreading issues remain
+
 **Test Setup & Infrastructure**
-- Create custom `WebApplicationFactory<Program>` that starts the FSI MCP server in-memory
-- Override console input/output streams with testable `StringWriter`/`StringReader` 
-- Use dependency injection to replace `Console` with test doubles during testing
-- Set up proper cleanup to kill FSI processes after each test
+- ✅ Created test project with direct Program module access (no WebApplicationFactory needed)
+- ✅ Console stream redirection working with `StringWriter`/`StringReader`
+- ✅ Direct FSI service integration via extracted `createApp()` function
+- ✅ Proper cleanup with FSI process termination
 
 **Test Scenarios**
-- **Basic F# Execution**: Send `"1 + 1"` via console, verify `"val it : int = 2"` appears in output
-- **Multi-line Statements**: Test `"let x = 5\nx * 2"` and verify proper execution
-- **Error Handling**: Send invalid F# code, verify error messages captured in stderr
-- **Command Line Args**: Test FSI startup with `--nologo`, `--define:DEBUG` arguments
+- ✅ **Basic F# Execution**: Successfully detects FSI startup ("F# Interactive version")
+- ⚠️ **Input Processing**: Can send input but timing/threading issues prevent verification of "val it : int = 2"
+- ❌ **Multi-line Statements**: Not yet implemented
+- ❌ **Error Handling**: Not yet implemented  
+- ❌ **Command Line Args**: Not yet implemented
 
 **Technical Approach**
-- **Console Redirection**: Use `Console.SetIn()/SetOut()/SetError()` to redirect streams for testing
-- **Async Output Capture**: Monitor FSI output streams with timeout-based assertions
-- **Event Queue Verification**: Check that console inputs appear in `FsiService.GetRecentEvents()`
-- **Process Health**: Verify FSI process starts successfully and remains alive during test
+- ✅ **Console Redirection**: `Console.SetIn()/SetOut()` working correctly
+- ✅ **FSI Process Management**: Direct access to FsiService for process control
+- ⚠️ **Async Coordination**: Multithreading challenges between console input task and FSI output capture
+- ✅ **Process Health**: FSI starts successfully and captures initial output
 
-**Key Challenges to Address**
-- **Timing Issues**: FSI output is async - need proper `Task.Delay()` or polling for output
-- **Stream Isolation**: Ensure tests don't interfere with each other's console streams
-- **Process Cleanup**: Guarantee FSI processes are killed even if tests fail
-- **Output Parsing**: Handle FSI's complex output format (prompts, results, errors)
+**Current Issues & Challenges**
+- 🔄 **Threading Coordination**: Console input task runs in background, making input timing difficult
+- 🔄 **Output Timing**: Need better synchronization between sending input and capturing output
+- 🔄 **Stream Buffering**: Console output may be buffered, affecting test reliability
+- ✅ **Process Cleanup**: Working correctly with proper disposal
+
+**Next Steps**
+- Fix multithreading synchronization for reliable input/output testing
+- Add proper polling mechanism for FSI response capture
+- Implement remaining test scenarios once basic execution is stable
 
 #### 2. MCP HTTP Endpoint Smoke Test
 **Objective**: Verify MCP tools work via HTTP API calls

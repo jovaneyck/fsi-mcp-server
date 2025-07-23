@@ -1,4 +1,8 @@
+module Program
+
 open System
+open System.Threading
+open System.Threading.Channels
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
@@ -6,10 +10,7 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
 
-[<EntryPoint>]
-let main args =
-    let builder = WebApplication.CreateBuilder(args)
-
+let configureServices (builder: WebApplicationBuilder) =
     // Configure logging - redirect ASP.NET logs away from console to keep FSI I/O clean
     builder.Logging.ClearProviders() |> ignore
     builder.Logging.AddDebug() |> ignore
@@ -32,19 +33,38 @@ let main args =
 
     builder.WebHost.UseUrls("http://0.0.0.0:5020")
     |> ignore
-    
-    let app = builder.Build()
-    
-    // Start FSI service
-    let fsiService = app.Services.GetRequiredService<FsiService.FsiService>()
-    let fsiProcess = fsiService.StartFsi(args)
-    
+
+let configureApp (app: WebApplication) =
     // Configure middleware pipeline
     app.UseDeveloperExceptionPage() |> ignore
 
     // Map MCP endpoints first (they use /mcp path prefix)
     app.MapMcp() |> ignore
+        
+    app.MapGet("/health", Func<string>(fun () -> "Ready to work!"))
+    |> ignore
 
+let createApp (args: string[]) =
+    let builder = WebApplication.CreateBuilder(args)
+    configureServices builder
+    let app = builder.Build()
+    let status = configureApp app
+    
+    // Start FSI service
+    let fsiService = app.Services.GetRequiredService<FsiService.FsiService>()
+    let fsiProcess = fsiService.StartFsi(args)
+    
+    // Setup cleanup on shutdown
+    let lifetime = app.Lifetime
+        
+    lifetime.ApplicationStopping.Register(fun () -> 
+        fsiService.Cleanup()
+    ) |> ignore
+    
+    Console.CancelKeyPress.Add (fun _ ->
+        fsiService.Cleanup()
+        Environment.Exit(0))
+    
     let status =
         [ "🚀 FSI.exe with MCP Server"
           ""
@@ -58,43 +78,46 @@ let main args =
           "   💬 Console: Type F# commands (streams via both MCP + SSE)"
           "   🤖 MCP: Use tools (streams via both MCP + SSE)"
     ]
-        
-    app.MapGet("/health", Func<string>(fun () -> "Ready to work!"))
-    |> ignore
-    
-    // Add a simple status page
-    app.MapGet("/status", Func<string>(fun () -> String.concat "\n" status))
-    |> ignore
-
-    // Setup cleanup on shutdown
-    let lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>()
-
-    lifetime.ApplicationStopping.Register(fun () -> 
-        fsiService.Cleanup()
-    ) |> ignore
-
-    Console.CancelKeyPress.Add (fun _ ->
-        fsiService.Cleanup()
-        Environment.Exit(0))
-
     status |> Seq.iter (printfn "%s")
     printfn "Press Ctrl+C to stop"
     printfn ""
-
+    
     // Start console input forwarding in background
-    let _ = Task.Run(fun () ->
-        try
-            printfn "💬 Console input forwarding started. Type F# commands directly:"
-            while true do
+    let inputChannel = Channel.CreateUnbounded<string>()
+
+    let startConsoleProducer (logger: ILogger) (cts: CancellationToken) =
+        Task.Run(fun () ->
+            logger.LogInformation("Console producer started")
+            while not cts.IsCancellationRequested do
                 let line = Console.ReadLine()
                 if not (isNull line) then
-                    match fsiService.SendToFsi(line, FsiService.FsiInputSource.Console) with
-                    | Ok _ -> ()
-                    | Error msg -> printfn $"Console input error: {msg}"
-        with
-        | ex -> printfn $"Console input service error: {ex.Message}")
+                    inputChannel.Writer.TryWrite line |> ignore
+        , cts)
+    
+    let startFsiConsumer (fsiSvc: FsiService.FsiService) (logger: ILogger) (cts: CancellationToken) =
+        Task.Run(fun () ->
+            logger.LogInformation("FSI consumer started")
+            task {
+                while! inputChannel.Reader.WaitToReadAsync(cts) do
+                    let! line = inputChannel.Reader.ReadAsync(cts)
+                    match fsiSvc.SendToFsi(line, FsiService.FsiInputSource.Console) with
+                    | Ok _       -> ()
+                    | Error msg  -> logger.LogError("Console input error: {Msg}", msg)
+            } :> Task
+        , cts)
+    
+    let logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("ConsoleBridge")
+    
+    use cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.ApplicationStopping)
+    let prodTask = startConsoleProducer logger cts.Token
+    let consTask = startFsiConsumer fsiService logger cts.Token
+    
+    app, Task.WhenAll [| prodTask; consTask |]
 
-    // Run the application
-    app.Run()
+[<EntryPoint>]
+let main args =
+    let (app, consoleTask) = createApp args
+    let appTask = app.RunAsync()
+    Task.WaitAll([| appTask; consoleTask |])
 
     0
