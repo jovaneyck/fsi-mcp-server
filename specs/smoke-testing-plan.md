@@ -22,10 +22,30 @@ Using xUnit with ASP.NET Core TestServer and WebApplicationFactory for in-memory
 
 #### 1. Console I/O Smoke Test
 **Objective**: Verify FSI process can receive console input and produce output
-- Test FSI process startup with various command line arguments
-- Verify input forwarding from console to FSI process
-- Validate output capture from FSI stdout/stderr
-- Ensure proper cleanup on test completion
+
+**Test Setup & Infrastructure**
+- Create custom `WebApplicationFactory<Program>` that starts the FSI MCP server in-memory
+- Override console input/output streams with testable `StringWriter`/`StringReader` 
+- Use dependency injection to replace `Console` with test doubles during testing
+- Set up proper cleanup to kill FSI processes after each test
+
+**Test Scenarios**
+- **Basic F# Execution**: Send `"1 + 1"` via console, verify `"val it : int = 2"` appears in output
+- **Multi-line Statements**: Test `"let x = 5\nx * 2"` and verify proper execution
+- **Error Handling**: Send invalid F# code, verify error messages captured in stderr
+- **Command Line Args**: Test FSI startup with `--nologo`, `--define:DEBUG` arguments
+
+**Technical Approach**
+- **Console Redirection**: Use `Console.SetIn()/SetOut()/SetError()` to redirect streams for testing
+- **Async Output Capture**: Monitor FSI output streams with timeout-based assertions
+- **Event Queue Verification**: Check that console inputs appear in `FsiService.GetRecentEvents()`
+- **Process Health**: Verify FSI process starts successfully and remains alive during test
+
+**Key Challenges to Address**
+- **Timing Issues**: FSI output is async - need proper `Task.Delay()` or polling for output
+- **Stream Isolation**: Ensure tests don't interfere with each other's console streams
+- **Process Cleanup**: Guarantee FSI processes are killed even if tests fail
+- **Output Parsing**: Handle FSI's complex output format (prompts, results, errors)
 
 #### 2. MCP HTTP Endpoint Smoke Test
 **Objective**: Verify MCP tools work via HTTP API calls
