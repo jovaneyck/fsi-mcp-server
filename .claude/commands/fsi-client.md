@@ -206,3 +206,9 @@ When working with a specific .fsx file (like scratch.fsx), Claude automatically 
 5. **Alert if Needed**: Report problems immediately
 
 This mode transforms Claude into a transparent English-to-F# execution layer, making the collaboration feel like direct F# programming with immediate feedback.
+
+# Filesystem path concerns.
+You are an AI agent running in wsl2. Both the mcp server and the fsi.exe process are running under windows. 
+Whenever you write paths to F# code or to the fsi mcp server, they must be windows style.
+Whenever you read files from disk, they must be unix style.
+ALWAYS prefer relative paths when including paths in F# code.
