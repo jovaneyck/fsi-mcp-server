@@ -253,3 +253,79 @@ module HybridSmokeTests =
                     Console.SetIn originalIn
             }
             |> Async.StartAsTask
+
+        [<Fact>]
+        let ``Console input appears in MCP events`` () =
+            async {
+                // Setup console redirection BEFORE starting WebApplicationFactory
+                let originalOut, originalIn = Console.Out, Console.In
+                use consoleOutput = new StringWriter()
+                Console.SetOut consoleOutput
+                
+                // Setup console input with F# code
+                let testCode = "let consoleTest = 42 + 8;;" + Environment.NewLine
+                use consoleInput = new StringReader(testCode)
+                Console.SetIn consoleInput
+
+                try
+                    // Setup WebApplicationFactory (this should pick up the redirected console streams)
+                    use factory = new WebApplicationFactory<Program>()
+                    use client = factory.CreateClient()
+
+                    let clientTransport =
+                        new SseClientTransport(
+                            new SseClientTransportOptions(Endpoint = client.BaseAddress),
+                            client,
+                            null,
+                            false
+                        )
+
+                    let! mcpClient =
+                        McpClientFactory.CreateAsync(clientTransport)
+                        |> Async.AwaitTask
+
+                    // Wait for the FSI server to start and process console input
+                    do! Async.Sleep 2000
+
+                    // Check if console output shows the evaluation result
+                    let consoleText = consoleOutput.ToString()
+                    output.WriteLine($"Console output: {consoleText}")
+
+                    // Poll for MCP events to capture the console input
+                    let mutable cachedEvents = ""
+                    let! eventsFound = 
+                        Utilities.pollWithExponentialBackoff 
+                            (fun () -> 
+                                try
+                                    let getEventsResult =
+                                        (mcpClient.CallToolAsync(
+                                            McpToolNames.GetRecentFsiEvents,
+                                            [ ("count", Option.Some 10 :> obj) ] |> Map.ofSeq
+                                        ))
+                                            .AsTask()
+                                        |> Async.AwaitTask
+                                        |> Async.RunSynchronously
+                                    let eventsText =
+                                        (getEventsResult.Content[0] :?> ModelContextProtocol.Protocol.TextContentBlock)
+                                            .Text
+                                    cachedEvents <- eventsText
+                                    output.WriteLine($"MCP Events: {eventsText}")
+                                    // Check for both the input and the evaluation result
+                                    eventsText.Contains("let consoleTest = 42 + 8") && 
+                                    eventsText.Contains("val consoleTest: int = 50")
+                                with
+                                | ex -> 
+                                    output.WriteLine($"Error getting events: {ex.Message}")
+                                    false)
+                            10000 // 10 seconds timeout
+
+                    // Verify console input appears in MCP event history
+                    test <@ eventsFound @>
+                    test <@ cachedEvents.Contains("let consoleTest = 42 + 8") @>
+                    test <@ cachedEvents.Contains("val consoleTest: int = 50") @>
+
+                finally
+                    Console.SetOut originalOut
+                    Console.SetIn originalIn
+            }
+            |> Async.StartAsTask
