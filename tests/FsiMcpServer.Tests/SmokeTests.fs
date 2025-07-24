@@ -27,6 +27,7 @@ module ConsoleIOSmokeTests =
     open Program
     open Xunit.Abstractions
 
+    [<Collection("Sequential")>]
     type ConsoleIOSmokeTests(output: ITestOutputHelper) =
         [<Fact>]
         let ``Basic F# code is evaluated`` () =
@@ -72,6 +73,7 @@ module McpHttpSmokeTests =
     open Program
     open Xunit.Abstractions
 
+    [<Collection("Sequential")>]
     type McpHttpSmokeTests(output: ITestOutputHelper) =
         [<Fact>]
         let ``MCP server responds to status tool calls`` () =
@@ -189,6 +191,7 @@ module HybridSmokeTests =
     open Program
     open Xunit.Abstractions
 
+    [<Collection("Sequential")>]
     type HybridSmokeTests(output: ITestOutputHelper) =
         [<Fact>]
         let ``MCP SendFSharpCode appears in console output`` () =
