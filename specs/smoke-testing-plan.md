@@ -6,7 +6,7 @@ This document outlines the smoke testing strategy for the FSI MCP Server project
 
 ## Task list
 * Tests cannot run concurrently
-* 2 app startup paradigms in smoketests, consolidate
+* 2 app startup paradigms in smoketests, consolidate - **RESOLVED**: All hybrid tests now use WebApplicationFactory only
 
 ## Current Architecture Issues
 
@@ -111,7 +111,7 @@ Using xUnit with ASP.NET Core TestServer and WebApplicationFactory for in-memory
 
 **Test Scenarios**
 - ✅ **MCP-to-Console Verification**: Send F# code via MCP, verify output appears in console stream
-- ❌ **Console-to-MCP Verification**: Execute console commands, verify events captured via GetRecentFsiEvents
+- ✅ **Console-to-MCP Verification**: Execute console commands, verify events captured via GetRecentFsiEvents
 - ❌ **Simultaneous Operations**: Concurrent console input and MCP API calls
 - ❌ **Source Attribution**: Validate proper tagging of input sources (console vs api vs file)
 - ❌ **Event Ordering**: Verify chronological ordering of events from multiple sources
@@ -125,23 +125,26 @@ Using xUnit with ASP.NET Core TestServer and WebApplicationFactory for in-memory
 
 **Implementation Plan**
 1. ✅ **First Scenario**: Send F# code via MCP SendFSharpCode, verify evaluation result appears in console output
-2. ❌ **Bidirectional Test**: Console input visible via MCP GetRecentFsiEvents  
+2. ✅ **Bidirectional Test**: Console input visible via MCP GetRecentFsiEvents  
 3. ❌ **Concurrent Access**: Multiple input sources operating simultaneously
 4. ❌ **Event Stream Validation**: Comprehensive event ordering and attribution testing
 
 **Success Criteria**
 - ✅ F# code sent via MCP API appears in console output stream
-- ❌ Console commands appear in MCP event history
+- ✅ Console commands appear in MCP event history
 - ❌ Proper source attribution maintained throughout
 - ❌ No interference between input sources
 - ✅ Session state remains consistent across all access methods
 
 **Implementation Details**
 - ✅ **Test Created**: `HybridSmokeTests.``MCP SendFSharpCode appears in console output```
+- ✅ **Test Created**: `HybridSmokeTests.``Console input appears in MCP events```
 - ✅ **Console Redirection**: Successfully captures FSI output using StringWriter
 - ✅ **MCP Integration**: WebApplicationFactory + SSE transport working in hybrid mode
 - ✅ **Code Verification**: Test sends `let hybridTest = 100 + 23;;` and verifies `val hybridTest: int = 123` in console output
-- ✅ **Timing Coordination**: 2-second delay ensures FSI evaluation completes before verification
+- ✅ **Bidirectional Verification**: Console input `let consoleTest = 42 + 8;;` appears in MCP GetRecentFsiEvents
+- ✅ **Timing Coordination**: Exponential backoff polling ensures proper synchronization
+- ✅ **WebApplicationFactory Only**: Resolved mixed startup paradigms issue by using only WebApplicationFactory approach
 
 #### 4. FSI Process Lifecycle Smoke Test
 **Objective**: Test process management robustness
