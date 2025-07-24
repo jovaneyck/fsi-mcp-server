@@ -9,8 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="ConsoleIOSmokeTests.fs" />
-        <Compile Include="McpHttpSmokeTests.fs" />
+        <Compile Include="SmokeTests.fs" />
     </ItemGroup>
 
     <ItemGroup>
