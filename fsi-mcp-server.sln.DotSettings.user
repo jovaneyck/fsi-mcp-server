@@ -12,9 +12,10 @@
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003ASseClientTransportOptions_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003FUsers_003FJo_002EVanEyck_003FAppData_003FRoaming_003FJetBrains_003FRider2025_002E1_003Fresharper_002Dhost_003FSourcesCache_003F61b343b32906d78d391639f849e7bf3f4b5d3677cbb6ee327c2c1c959f424b_003FSseClientTransportOptions_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AThreadPoolWorkQueue_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003FUsers_003FJo_002EVanEyck_003FAppData_003FRoaming_003FJetBrains_003FRider2025_002E1_003Fresharper_002Dhost_003FSourcesCache_003F478cd37a9cf5552e58e069a6aafb2a112b89b262faef3cfb5054d65b1ea95345_003FThreadPoolWorkQueue_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AWebApplication_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003FUsers_003FJo_002EVanEyck_003FAppData_003FRoaming_003FJetBrains_003FRider2025_002E1_003Fresharper_002Dhost_003FDecompilerCache_003Fdecompiler_003Feb83c0d558c84b998f640ddee4d6cfb01b918_003Faf_003Fed353647_003FWebApplication_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=7318181f_002D4cb7_002D490c_002Daa54_002D03b4d1072881/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="McpHttpSmokeTests" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=41ac1019_002D4917_002D4956_002D9c61_002D2e352eabef81/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="All tests from Solution" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
   &lt;Solution /&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
+	
 	
 	
 	</wpf:ResourceDictionary>

@@ -1,5 +1,23 @@
 module SmokeTests
 
+module Utilities =
+    let public pollWithExponentialBackoff (predicate: unit -> bool) (maxTotalMs: int) =
+        async {
+            let mutable delay = 100 // Start with 100ms
+            let mutable totalElapsed = 0
+            let mutable found = false
+            
+            while not found && totalElapsed < maxTotalMs do
+                if predicate() then
+                    found <- true
+                else
+                    do! Async.Sleep delay
+                    totalElapsed <- totalElapsed + delay
+                    delay <- min (delay * 2) 2000 // Cap at 2 seconds max delay
+            
+            return found
+        }
+
 module ConsoleIOSmokeTests =
     open System
     open System.IO
@@ -28,18 +46,14 @@ module ConsoleIOSmokeTests =
 
                 let expectedOutput = "val foo: int = 4"
 
-                let rec wait n =
-                    async {
-                        if n = 50 then
-                            return output.ToString()
-                        elif output.ToString().Contains(expectedOutput) then
-                            return output.ToString()
-                        else
-                            do! Async.Sleep 200
-                            return! wait (n + 1)
-                    }
-
-                let! finalOut = wait 0
+                // Poll for FSI output with exponential backoff
+                let! outputFound = 
+                    Utilities.pollWithExponentialBackoff 
+                        (fun () -> output.ToString().Contains(expectedOutput))
+                        15000 // 15 seconds total timeout (increased for parallel test runs)
+                
+                let finalOut = output.ToString()
+                test <@ outputFound @>
                 test <@ finalOut.Contains(expectedOutput) @>
 
                 do! app.DisposeAsync().AsTask() |> Async.AwaitTask
@@ -134,21 +148,32 @@ module McpHttpSmokeTests =
                         .Text
 
                 test <@ sendCodeResultText.Contains("Code sent to FSI and logged") @>
-                do! Async.Sleep 2000 //fsi.exe needs some time to eval and prints
-
-                let! getLatestEventsResult =
-                    (mcpClient.CallToolAsync(
-                        McpToolNames.GetRecentFsiEvents,
-                        [ ("count", Option.Some 10 :> obj) ] |> Map.ofSeq
-                    ))
-                        .AsTask()
-                    |> Async.AwaitTask
-
-                let getLatestEventsResultText =
-                    (getLatestEventsResult.Content[0] :?> ModelContextProtocol.Protocol.TextContentBlock)
-                        .Text
-
-                test <@ getLatestEventsResultText.Contains("val roundTripTest: int = 50") @>
+                
+                // Poll for FSI events with exponential backoff
+                let mutable cachedResult = ""
+                let! eventsFound = 
+                    Utilities.pollWithExponentialBackoff 
+                        (fun () -> 
+                            try
+                                let getLatestEventsResult =
+                                    (mcpClient.CallToolAsync(
+                                        McpToolNames.GetRecentFsiEvents,
+                                        [ ("count", Option.Some 10 :> obj) ] |> Map.ofSeq
+                                    ))
+                                        .AsTask()
+                                    |> Async.AwaitTask
+                                    |> Async.RunSynchronously
+                                let getLatestEventsResultText =
+                                    (getLatestEventsResult.Content[0] :?> ModelContextProtocol.Protocol.TextContentBlock)
+                                        .Text
+                                cachedResult <- getLatestEventsResultText
+                                getLatestEventsResultText.Contains("val roundTripTest: int = 50")
+                            with
+                            | _ -> false)
+                        10000 // 10 seconds total timeout (increased from 2s)
+                
+                test <@ eventsFound @>
+                test <@ cachedResult.Contains("val roundTripTest: int = 50") @>
                 return ()
             }
             |> Async.StartAsTask
@@ -210,12 +235,17 @@ module HybridSmokeTests =
                             .Text
 
                     test <@ sendCodeResultText.Contains("Code sent to FSI and logged") @>
-                    // Wait for FSI to process and output the result
-                    do! Async.Sleep 2000
-
+                    
+                    // Poll for FSI to process and output the result with exponential backoff
+                    let! outputFound = 
+                        Utilities.pollWithExponentialBackoff 
+                            (fun () -> consoleOutput.ToString().Contains("val hybridTest: int = 123"))
+                            10000 // 10 seconds total timeout
+                    
                     // Verify the code execution result appears in console output
                     let consoleText = consoleOutput.ToString()
-
+                    
+                    test <@ outputFound @>
                     test <@ consoleText.Contains("val hybridTest: int = 123") @>
 
                 finally
