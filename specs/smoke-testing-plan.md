@@ -23,7 +23,7 @@ Using xUnit with ASP.NET Core TestServer and WebApplicationFactory for in-memory
 #### 1. Console I/O Smoke Test
 **Objective**: Verify FSI process can receive console input and produce output
 
-**Status**: ✅ **BASIC TEST WORKING** - Successfully capturing FSI startup output, but multithreading issues remain
+**Status**: ✅ **COMPLETE** - Console I/O smoke test fully working with proper input/output synchronization
 
 **Test Setup & Infrastructure**
 - ✅ Created test project with direct Program module access (no WebApplicationFactory needed)
@@ -33,7 +33,8 @@ Using xUnit with ASP.NET Core TestServer and WebApplicationFactory for in-memory
 
 **Test Scenarios**
 - ✅ **Basic F# Execution**: Successfully detects FSI startup ("F# Interactive version")
-- ⚠️ **Input Processing**: Can send input but timing/threading issues prevent verification of "val it : int = 2"
+- ✅ **Input Processing**: Successfully sends input and captures output ("val it : int = 2")
+- ✅ **Threading Synchronization**: Fixed multithreading coordination issues
 - ❌ **Multi-line Statements**: Not yet implemented
 - ❌ **Error Handling**: Not yet implemented  
 - ❌ **Command Line Args**: Not yet implemented
@@ -41,19 +42,19 @@ Using xUnit with ASP.NET Core TestServer and WebApplicationFactory for in-memory
 **Technical Approach**
 - ✅ **Console Redirection**: `Console.SetIn()/SetOut()` working correctly
 - ✅ **FSI Process Management**: Direct access to FsiService for process control
-- ⚠️ **Async Coordination**: Multithreading challenges between console input task and FSI output capture
+- ✅ **Async Coordination**: Threading issues resolved through CLI integration
 - ✅ **Process Health**: FSI starts successfully and captures initial output
 
-**Current Issues & Challenges**
-- 🔄 **Threading Coordination**: Console input task runs in background, making input timing difficult
-- 🔄 **Output Timing**: Need better synchronization between sending input and capturing output
-- 🔄 **Stream Buffering**: Console output may be buffered, affecting test reliability
+**Issues Resolved**
+- ✅ **Threading Coordination**: Fixed through CLI integration approach
+- ✅ **Output Timing**: Proper synchronization between sending input and capturing output
+- ✅ **Stream Buffering**: Console output buffering issues resolved
 - ✅ **Process Cleanup**: Working correctly with proper disposal
 
 **Next Steps**
-- Fix multithreading synchronization for reliable input/output testing
-- Add proper polling mechanism for FSI response capture
-- Implement remaining test scenarios once basic execution is stable
+- Implement remaining test scenarios (multi-line statements, error handling, command line args)
+- Move to MCP HTTP endpoint smoke tests
+- Implement hybrid mode testing
 
 #### 2. MCP HTTP Endpoint Smoke Test
 **Objective**: Verify MCP tools work via HTTP API calls

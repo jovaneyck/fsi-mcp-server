@@ -1,12 +1,11 @@
 module FsiMcpTools
-
+            
 open System.ComponentModel
 open ModelContextProtocol.Server
-open System.Text.Json
+
 //to test: npx @modelcontextprotocol/inspector
 //this uses SSE transport over http://localhost:5000/sse
 type FsiTools(fsiService: FsiService.FsiService) =
-    
     [<McpServerTool>]
     [<Description("Send F# code to the FSI (F# Interactive) session for execution.")>]
     member _.SendFSharpCode(agentName: string, code: string) : string = 
@@ -34,9 +33,10 @@ type FsiTools(fsiService: FsiService.FsiService) =
                 $"[{e.Timestamp}] {e.EventType.ToUpper()} ({e.Source}): {e.Content}")
             String.concat "\n" eventStrings
     
-    [<McpServerTool>]
+    [<McpServerTool(Name=McpToolNames.GetFsiStatus)>]
     [<Description("Get information about the FSI service status.")>]
-    member _.GetFsiStatus() : string = 
+    member _.GetFsiStatus() : string =
+        
         let sessionId = fsiService.GetSessionId()
         let totalEvents = fsiService.GetAllEvents().Length
         

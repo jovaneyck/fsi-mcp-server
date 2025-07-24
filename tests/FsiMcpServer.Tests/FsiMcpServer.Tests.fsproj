@@ -10,6 +10,7 @@
 
     <ItemGroup>
         <Compile Include="ConsoleIOSmokeTests.fs" />
+        <Compile Include="McpHttpSmokeTests.fs" />
     </ItemGroup>
 
     <ItemGroup>

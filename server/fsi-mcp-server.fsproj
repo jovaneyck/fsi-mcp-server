@@ -8,6 +8,7 @@
 
     <ItemGroup>
         <Compile Include="FsiService.fs" />
+        <Compile Include="McpToolNames.fs" />
         <Compile Include="FsiMcpTools.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
