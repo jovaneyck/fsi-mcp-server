@@ -5,8 +5,8 @@
 This document outlines the smoke testing strategy for the FSI MCP Server project using xUnit and ASP.NET Core's WebApplicationFactory for in-memory testing.
 
 ## Task list
-* Tests cannot run concurrently
-* 2 app startup paradigms in smoketests, consolidate - **RESOLVED**: All hybrid tests now use WebApplicationFactory only
+* TODO: Tests cannot run concurrently
+* DONE: 2 app startup paradigms in smoketests, consolidate 
 
 ## Current Architecture Issues
 

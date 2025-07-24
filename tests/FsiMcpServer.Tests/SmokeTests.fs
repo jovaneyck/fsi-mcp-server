@@ -21,47 +21,47 @@ module Utilities =
 module ConsoleIOSmokeTests =
     open System
     open System.IO
-    open System.Threading.Tasks
+    open Microsoft.AspNetCore.Mvc.Testing
     open Xunit
     open Swensen.Unquote
-
-    // Import the server's Program module functions
     open Program
+    open Xunit.Abstractions
 
-    [<Fact>]
-    let ``Basic F# code is evaluated`` () =
-        async {
-            let originalOut, originalIn = Console.Out, Console.In
-            use output = new StringWriter()
-            Console.SetOut output
+    type ConsoleIOSmokeTests(output: ITestOutputHelper) =
+        [<Fact>]
+        let ``Basic F# code is evaluated`` () =
+            async {
+                // Setup console redirection
+                let originalOut, originalIn = Console.Out, Console.In
+                use consoleOutput = new StringWriter()
+                Console.SetOut consoleOutput
 
-            let script = "let foo = 1 + 3;;" + Environment.NewLine
-            use input = new StringReader(script)
-            Console.SetIn input
+                let script = "let foo = 1 + 3;;" + Environment.NewLine
+                use consoleInput = new StringReader(script)
+                Console.SetIn consoleInput
 
-            try
-                let (app, consoleTask) = createApp [||]
-                consoleTask |> ignore
-                let appTask = Task.Run(fun () -> app.Run())
+                try
+                    use factory = new WebApplicationFactory<Program>()
+                    use client = factory.CreateClient()
 
-                let expectedOutput = "val foo: int = 4"
+                    let expectedOutput = "val foo: int = 4"
 
-                // Poll for FSI output with exponential backoff
-                let! outputFound = 
-                    Utilities.pollWithExponentialBackoff 
-                        (fun () -> output.ToString().Contains(expectedOutput))
-                        15000 // 15 seconds total timeout (increased for parallel test runs)
-                
-                let finalOut = output.ToString()
-                test <@ outputFound @>
-                test <@ finalOut.Contains(expectedOutput) @>
-
-                do! app.DisposeAsync().AsTask() |> Async.AwaitTask
-            finally
-                Console.SetOut originalOut
-                Console.SetIn originalIn
-        }
-        |> Async.RunSynchronously
+                    // Poll for FSI output with exponential backoff
+                    let! outputFound = 
+                        Utilities.pollWithExponentialBackoff 
+                            (fun () -> consoleOutput.ToString().Contains(expectedOutput))
+                            15000
+                    
+                    let finalOut = consoleOutput.ToString()
+                    output.WriteLine($"Console output: {finalOut}")
+                    
+                    test <@ outputFound @>
+                    test <@ finalOut.Contains(expectedOutput) @>
+                finally
+                    Console.SetOut originalOut
+                    Console.SetIn originalIn
+            }
+            |> Async.StartAsTask
 
 module McpHttpSmokeTests =
 
