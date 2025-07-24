@@ -7,7 +7,7 @@ A drop-in replacement for `fsi.exe` that adds MCP capabilities to F# Interactive
 FSI Server wraps the standard F# Interactive process while maintaining full CLI compatibility. It intercepts all FSI input/output to provide:
 
 - **Hybrid Usage**: Mix console input and MCP calls in the same session
-- **Full CLI Compatibility**: Use as a drop-in replacement for `fsi.exe`. Prepend fsi-specific args with `fsi:`
+- **Full CLI Compatibility**: Use as a drop-in replacement for `fsi.exe`. Only arguments prefixed with `fsi:` are passed to the underlying FSI process
 
 ## Quick Start
 
@@ -19,8 +19,8 @@ git clone <repository-url>
 cd fsi-mcp-server
 dotnet build
 
-# Run as FSI replacement
-dotnet run -- --nologo --load:script.fsx
+# Run as FSI replacement  
+dotnet run -- fsi:--nologo fsi:--load:script.fsx
 ```
 
 ### Basic Usage
@@ -124,9 +124,9 @@ It was a bit tricky to get this setup running in a Windows + wsl2 setup where cl
 If you have experience with this of wsl networking stuff, please contact me!
 
 ### CLI Pass-through
-All FSI command-line arguments are supported:
+FSI command-line arguments must be prefixed with `fsi:` to be passed to the underlying FSI process:
 ```bash
-dotnet run -- --nologo --define:DEBUG --load:setup.fsx
+dotnet run -- fsi:--nologo fsi:--define:DEBUG fsi:--load:setup.fsx
 ```
 
 ## Requirements
