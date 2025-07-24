@@ -9,6 +9,7 @@ module ConsoleIOSmokeTests =
 
     // Import the server's Program module functions
     open Program
+
     [<Fact>]
     let ``Basic F# code is evaluated`` () =
         async {
@@ -17,8 +18,8 @@ module ConsoleIOSmokeTests =
             Console.SetOut output
 
             let script = "let foo = 1 + 3;;" + Environment.NewLine
-            use input  = new StringReader(script)
-            Console.SetIn  input
+            use input = new StringReader(script)
+            Console.SetIn input
 
             try
                 let (app, consoleTask) = createApp [||]
@@ -26,28 +27,30 @@ module ConsoleIOSmokeTests =
                 let appTask = Task.Run(fun () -> app.Run())
 
                 let expectedOutput = "val foo: int = 4"
+
                 let rec wait n =
                     async {
-                        if n = 50 then return output.ToString()
+                        if n = 50 then
+                            return output.ToString()
                         elif output.ToString().Contains(expectedOutput) then
                             return output.ToString()
                         else
                             do! Async.Sleep 200
                             return! wait (n + 1)
                     }
+
                 let! finalOut = wait 0
                 test <@ finalOut.Contains(expectedOutput) @>
 
                 do! app.DisposeAsync().AsTask() |> Async.AwaitTask
             finally
                 Console.SetOut originalOut
-                Console.SetIn  originalIn
-        } |> Async.RunSynchronously
+                Console.SetIn originalIn
+        }
+        |> Async.RunSynchronously
 
 module McpHttpSmokeTests =
 
-    open System
-    open System.Threading.Tasks
     open Microsoft.AspNetCore.Mvc.Testing
     open ModelContextProtocol.Client
     open Xunit
@@ -103,7 +106,7 @@ module McpHttpSmokeTests =
             async {
                 use factory = new WebApplicationFactory<Program>()
                 use client = factory.CreateClient()
-                
+
                 let clientTransport =
                     new SseClientTransport(
                         new SseClientTransportOptions(Endpoint = client.BaseAddress),
@@ -125,24 +128,98 @@ module McpHttpSmokeTests =
                     ))
                         .AsTask()
                     |> Async.AwaitTask
+
                 let sendCodeResultText =
                     (sendCodeResult.Content[0] :?> ModelContextProtocol.Protocol.TextContentBlock)
                         .Text
+
                 test <@ sendCodeResultText.Contains("Code sent to FSI and logged") @>
-                do! Task.Delay(2000) |> Async.AwaitTask //Allow fsi.exe to eval and print output
+                do! Async.Sleep 2000 //fsi.exe needs some time to eval and prints
+
                 let! getLatestEventsResult =
                     (mcpClient.CallToolAsync(
                         McpToolNames.GetRecentFsiEvents,
-                        [ ("count", Option.Some 10 :> obj)]
-                        |> Map.ofSeq
+                        [ ("count", Option.Some 10 :> obj) ] |> Map.ofSeq
                     ))
                         .AsTask()
                     |> Async.AwaitTask
-                
+
                 let getLatestEventsResultText =
                     (getLatestEventsResult.Content[0] :?> ModelContextProtocol.Protocol.TextContentBlock)
                         .Text
+
                 test <@ getLatestEventsResultText.Contains("val roundTripTest: int = 50") @>
                 return ()
+            }
+            |> Async.StartAsTask
+
+module HybridSmokeTests =
+
+    open System
+    open System.IO
+    open Microsoft.AspNetCore.Mvc.Testing
+    open ModelContextProtocol.Client
+    open Xunit
+    open Swensen.Unquote
+    open Program
+    open Xunit.Abstractions
+
+    type HybridSmokeTests(output: ITestOutputHelper) =
+        [<Fact>]
+        let ``MCP SendFSharpCode appears in console output`` () =
+            async {
+                // Setup console redirection
+                let originalOut, originalIn = Console.Out, Console.In
+                use consoleOutput = new StringWriter()
+                Console.SetOut consoleOutput
+                use consoleInput = new StringReader("")
+                Console.SetIn consoleInput
+
+                try
+                    // Setup WebApplicationFactory for MCP client
+                    use factory = new WebApplicationFactory<Program>()
+                    use client = factory.CreateClient()
+
+                    let clientTransport =
+                        new SseClientTransport(
+                            new SseClientTransportOptions(Endpoint = client.BaseAddress),
+                            client,
+                            null,
+                            false
+                        )
+
+                    let! mcpClient =
+                        McpClientFactory.CreateAsync(clientTransport)
+                        |> Async.AwaitTask
+
+                    // Send F# code via MCP
+                    let testCode = "let hybridTest = 100 + 23;;"
+
+                    let! sendCodeResult =
+                        (mcpClient.CallToolAsync(
+                            McpToolNames.SendFSharpCode,
+                            [ ("agentName", "hybridtest" :> obj)
+                              ("code", testCode :> obj) ]
+                            |> Map.ofSeq
+                        ))
+                            .AsTask()
+                        |> Async.AwaitTask
+
+                    let sendCodeResultText =
+                        (sendCodeResult.Content[0] :?> ModelContextProtocol.Protocol.TextContentBlock)
+                            .Text
+
+                    test <@ sendCodeResultText.Contains("Code sent to FSI and logged") @>
+                    // Wait for FSI to process and output the result
+                    do! Async.Sleep 2000
+
+                    // Verify the code execution result appears in console output
+                    let consoleText = consoleOutput.ToString()
+
+                    test <@ consoleText.Contains("val hybridTest: int = 123") @>
+
+                finally
+                    Console.SetOut originalOut
+                    Console.SetIn originalIn
             }
             |> Async.StartAsTask
