@@ -6,7 +6,7 @@ open ModelContextProtocol.Server
 //to test: npx @modelcontextprotocol/inspector
 //this uses SSE transport over http://localhost:5000/sse
 type FsiTools(fsiService: FsiService.FsiService) =
-    [<McpServerTool>]
+    [<McpServerTool(Name=McpToolNames.SendFSharpCode)>]
     [<Description("Send F# code to the FSI (F# Interactive) session for execution.")>]
     member _.SendFSharpCode(agentName: string, code: string) : string = 
         match fsiService.SendToFsi(code, FsiService.FsiInputSource.Api agentName) with
@@ -20,7 +20,7 @@ type FsiTools(fsiService: FsiService.FsiService) =
         | Ok result -> result
         | Error msg -> $"Error: {msg}"
     
-    [<McpServerTool>]
+    [<McpServerTool(Name=McpToolNames.GetRecentFsiEvents)>]
     [<Description("Get recent FSI events.")>]
     member _.GetRecentFsiEvents(count: int option) : string = 
         let eventCount = defaultArg count 10

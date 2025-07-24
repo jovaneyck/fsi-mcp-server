@@ -7,7 +7,6 @@ open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
-open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
 
 type Program() =
@@ -57,7 +56,7 @@ let createApp (args: string[]) =
     
     // Start FSI service
     let fsiService = app.Services.GetRequiredService<FsiService.FsiService>()
-    let fsiProcess = fsiService.StartFsi(args)
+    let fsiProcess = fsiService.StartFsi(args |> Array.filter _.StartsWith("fsi:") |> Array.map _.Replace("fsi:",""))
     
     // Setup cleanup on shutdown
     let lifetime = app.Lifetime

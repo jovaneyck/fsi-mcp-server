@@ -1,8 +1,7 @@
 module McpHttpSmokeTests
 
-open System.Net.Http
-open System.Text
-open System.Text.Json
+open System
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Mvc.Testing
 open ModelContextProtocol.Client
 open Xunit
@@ -53,71 +52,51 @@ type McpHttpSmokeTests(output: ITestOutputHelper) =
         }
         |> Async.StartAsTask
 
-    //[<Fact>]
+    [<Fact>]
     let ``MCP HTTP round trip - SendFSharpCode and GetRecentFsiEvents`` () =
         async {
             use factory = new WebApplicationFactory<Program>()
             use client = factory.CreateClient()
+            
+            let clientTransport =
+                new SseClientTransport(
+                    new SseClientTransportOptions(Endpoint = client.BaseAddress),
+                    client,
+                    null,
+                    false
+                )
 
-            // Step 1: Execute F# code via SendFSharpCode
-            let codeRequest =
-                {| method = "tools/call"
-                   params =
-                    {| name = "send_fsharp_code"
-                       arguments =
-                        {| agentName = "TestAgent"
-                           code = "let roundTripTest = 42 + 8;;" |}
-                       _meta = {| progressToken = 0 |} |}
-                   jsonrpc = "2.0"
-                   id = 1 |}
-
-            let codeJson = JsonSerializer.Serialize(codeRequest)
-            let codeContent = new StringContent(codeJson, Encoding.UTF8, "application/json")
-
-            // Debug: Print request
-            printfn "Request JSON: %s" codeJson
-
-            let! codeResponse =
-                client.PostAsync("/message", codeContent)
+            let! mcpClient =
+                McpClientFactory.CreateAsync(clientTransport)
                 |> Async.AwaitTask
 
-            let! codeResponseString =
-                codeResponse.Content.ReadAsStringAsync()
+            let! sendCodeResult =
+                (mcpClient.CallToolAsync(
+                    McpToolNames.SendFSharpCode,
+                    [ ("agentName", "smoketest" :> obj)
+                      ("code", "let roundTripTest = 42 + 8;;" :> obj) ]
+                    |> Map.ofSeq
+                ))
+                    .AsTask()
                 |> Async.AwaitTask
-
-            // Debug: Print response for troubleshooting
-            printfn "Response Status: %d %s" (int codeResponse.StatusCode) (codeResponse.ReasonPhrase)
-            printfn "Response Content: %s" codeResponseString
-
-            // Verify code execution
-            test <@ codeResponse.IsSuccessStatusCode @>
-
-            // Step 2: Retrieve the events via GetRecentFsiEvents
-            let eventsRequest =
-                {| method = "tools/call"
-                   params =
-                    {| name = "get_recent_fsi_events"
-                       arguments = {| count = 5 |}
-                       _meta = {| progressToken = 1 |} |}
-                   jsonrpc = "2.0"
-                   id = 2 |}
-
-            let eventsJson = JsonSerializer.Serialize(eventsRequest)
-            let eventsContent = new StringContent(eventsJson, Encoding.UTF8, "application/json")
-
-            let! eventsResponse =
-                client.PostAsync("/message", eventsContent)
+            let sendCodeResultText =
+                (sendCodeResult.Content[0] :?> ModelContextProtocol.Protocol.TextContentBlock)
+                    .Text
+            test <@ sendCodeResultText.Contains("Code sent to FSI and logged") @>
+            do! Task.Delay(2000) |> Async.AwaitTask //Allow fsi.exe to eval and print output
+            let! getLatestEventsResult =
+                (mcpClient.CallToolAsync(
+                    McpToolNames.GetRecentFsiEvents,
+                    [ ("count", Option.Some 10 :> obj)]
+                    |> Map.ofSeq
+                ))
+                    .AsTask()
                 |> Async.AwaitTask
-
-            let! eventsResponseString =
-                eventsResponse.Content.ReadAsStringAsync()
-                |> Async.AwaitTask
-
-            // Verify events contain the executed code
-            test <@ eventsResponse.IsSuccessStatusCode @>
-            test <@ eventsResponseString.Contains("roundTripTest") @>
-            test <@ eventsResponseString.Contains("TestAgent") @>
-            test <@ eventsResponseString.Contains("API") @>
-
+            
+            let getLatestEventsResultText =
+                (getLatestEventsResult.Content[0] :?> ModelContextProtocol.Protocol.TextContentBlock)
+                    .Text
+            test <@ getLatestEventsResultText.Contains("val roundTripTest: int = 50") @>
+            return ()
         }
-        |> Async.RunSynchronously
+        |> Async.StartAsTask

@@ -7,7 +7,7 @@ A drop-in replacement for `fsi.exe` that adds MCP capabilities to F# Interactive
 FSI Server wraps the standard F# Interactive process while maintaining full CLI compatibility. It intercepts all FSI input/output to provide:
 
 - **Hybrid Usage**: Mix console input and MCP calls in the same session
-- **Full CLI Compatibility**: Use as a drop-in replacement for `fsi.exe`
+- **Full CLI Compatibility**: Use as a drop-in replacement for `fsi.exe`. Prepend fsi-specific args with `fsi:`
 
 ## Quick Start
 
