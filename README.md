@@ -2,6 +2,23 @@
 
 A drop-in replacement for `fsi.exe` that adds MCP capabilities to F# Interactive sessions. Perfect for AI-assisted development workflows where you need programmatic access to F# Interactive.
 
+## Why FSI MCP Server?
+
+**The elevator pitch:** It's F# Interactive, but your AI assistant is sitting right next to you, both of you coding together in the same REPL session.
+
+Imagine you're debugging a tricky F# issue in your REPL. You've loaded your modules, you're exploring data structures, and you're trying to figure out why a function isn't behaving as expected. Now imagine your AI assistant can *see* what you're typing into F# Interactive, *see* the output, and *execute* code snippets to help you - all in the same session, seamlessly.
+
+**That's FSI MCP Server.**
+
+Instead of copy-pasting F# code between your AI chat and F# Interactive, your AI assistant becomes a first-class participant in your REPL session:
+
+- **You** type exploratory code in the console
+- **AI** executes tests and validations through the MCP API
+- **Both** see the same FSI output in real-time
+- **Your workflow** doesn't change - it just gets superpowers
+
+Replace your F# Interactive executable with FSI MCP Server in JetBrains Rider, connect your AI assistant (like Claude Code), and suddenly your REPL sessions are collaborative. Your AI can run test cases, check edge cases, refactor code, and validate hypotheses - all while you maintain full control through the familiar console interface.
+
 ## Overview
 
 FSI Server wraps the standard F# Interactive process while maintaining full CLI compatibility. It intercepts all FSI input/output to provide:
