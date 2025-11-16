@@ -5,13 +5,20 @@ open ModelContextProtocol.Server
 
 //to test: npx @modelcontextprotocol/inspector
 //this uses SSE transport over http://localhost:5000/sse
-type FsiTools(fsiService: FsiService.FsiService) =
+open Microsoft.Extensions.Logging
+
+type FsiTools(fsiService: FsiService.FsiService, logger: ILogger<FsiTools>) =
     [<McpServerTool(Name=McpToolNames.SendFSharpCode)>]
     [<Description("Send F# code to the FSI (F# Interactive) session for execution.")>]
-    member _.SendFSharpCode(agentName: string, code: string) : string = 
+    member _.SendFSharpCode(agentName: string, code: string) : string =
+        logger.LogDebug("MCP-TOOL: SendFSharpCode called by {AgentName}: {Code}", agentName, code)
         match fsiService.SendToFsi(code, FsiService.FsiInputSource.Api agentName) with
-        | Ok result -> result
-        | Error msg -> $"Error: {msg}"
+        | Ok result ->
+            logger.LogDebug("MCP-TOOL: SendFSharpCode succeeded: {Result}", result)
+            result
+        | Error msg ->
+            logger.LogDebug("MCP-TOOL: SendFSharpCode failed: {Message}", msg)
+            $"Error: {msg}"
     
     [<McpServerTool>]
     [<Description("Load and execute an F# script file (.fsx) in the FSI session. The file is parsed and statements are sent individually.")>]

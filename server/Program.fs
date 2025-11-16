@@ -8,20 +8,23 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
+open FileLogger
 
 type Program() =
     static member ConfigureServices(builder: WebApplicationBuilder) =
         // Configure logging - redirect ASP.NET logs away from console to keep FSI I/O clean
         builder.Logging.ClearProviders() |> ignore
         builder.Logging.AddDebug() |> ignore
-        builder.Logging.SetMinimumLevel(LogLevel.Warning) |> ignore
+        builder.Logging.AddFileLogger("c:/tmp/fsi-mcp-debugging.log") |> ignore
+        builder.Logging.SetMinimumLevel(LogLevel.Debug) |> ignore
         
         builder.Services.AddSingleton<FsiService.FsiService>()
         |> ignore
 
         builder.Services.AddSingleton<FsiMcpTools.FsiTools>(fun serviceProvider ->
             let fsiService = serviceProvider.GetRequiredService<FsiService.FsiService>()
-            new FsiMcpTools.FsiTools(fsiService)
+            let logger = serviceProvider.GetRequiredService<ILogger<FsiMcpTools.FsiTools>>()
+            new FsiMcpTools.FsiTools(fsiService, logger)
         ) |> ignore
         
         builder
@@ -101,9 +104,12 @@ let createApp (args: string[]) =
     let startFsiConsumer (fsiSvc: FsiService.FsiService) (logger: ILogger) (cts: CancellationToken) =
         Task.Run(fun () ->
             logger.LogInformation("FSI consumer started")
+            logger.LogDebug("CONSOLE-CONSUMER: FSI consumer task started")
             task {
                 while! inputChannel.Reader.WaitToReadAsync(cts) do
+                    logger.LogDebug("CONSOLE-CONSUMER: Reading from input channel...")
                     let! line = inputChannel.Reader.ReadAsync(cts)
+                    logger.LogDebug("CONSOLE-CONSUMER: Got line from channel: {Line}", line)
                     match fsiSvc.SendToFsi(line, FsiService.FsiInputSource.Console) with
                     | Ok _       -> ()
                     | Error msg  -> logger.LogError("Console input error: {Msg}", msg)
@@ -111,8 +117,17 @@ let createApp (args: string[]) =
         , cts)
     
     let logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("ConsoleBridge")
-    
+
+    // Diagnostic: Log console state at startup
+    logger.LogDebug("=== CONSOLE STATE DIAGNOSTICS ===")
+    logger.LogDebug("Console.IsInputRedirected: {IsInputRedirected}", Console.IsInputRedirected)
+    logger.LogDebug("Console.IsOutputRedirected: {IsOutputRedirected}", Console.IsOutputRedirected)
+    logger.LogDebug("Console.IsErrorRedirected: {IsErrorRedirected}", Console.IsErrorRedirected)
+    logger.LogDebug("=================================")
+
     use cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.ApplicationStopping)
+
+    // Start tasks (they will wait internally for FSI ready)
     let prodTask = startConsoleProducer logger cts.Token
     let consTask = startFsiConsumer fsiService logger cts.Token
     

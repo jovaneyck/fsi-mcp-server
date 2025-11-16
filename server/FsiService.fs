@@ -5,7 +5,6 @@ open System.IO
 open System.Diagnostics
 open Microsoft.Extensions.Logging
 open System.Collections.Concurrent
-open ModelContextProtocol.Server
 
 type FsiInputSource = 
     | Console 
@@ -20,7 +19,7 @@ type FsiEvent = {
     SessionId: string
 }
 
-type FsiService(logger: ILogger<FsiService>) =  
+type FsiService(logger: ILogger<FsiService>) =
     let mutable fsiProcess: Process option = None
     let sessionId = Guid.NewGuid().ToString("N")[..7] // Short session ID
     let eventQueue = ConcurrentQueue<FsiEvent>()
@@ -43,13 +42,15 @@ type FsiService(logger: ILogger<FsiService>) =
         eventQueue.Enqueue(event)
 
     member _.StartFsi(args: string[]) =
-        let fsiArgs = 
+        logger.LogDebug("FSI-START: StartFsi called with {ArgsCount} args", args.Length)
+        let fsiArgs =
             if args.Length > 1 then
                 let userArgs = args |> Array.skip 1 |> String.concat " "
                 $"fsi {userArgs}"
             else
                 "fsi"
-        
+
+        logger.LogDebug("FSI-START: Starting FSI with args: {FsiArgs}", fsiArgs)
         let psi = ProcessStartInfo()
         psi.FileName <- "dotnet"
         psi.Arguments <- fsiArgs
@@ -58,9 +59,10 @@ type FsiService(logger: ILogger<FsiService>) =
         psi.RedirectStandardError <- true
         psi.UseShellExecute <- false
         psi.CreateNoWindow <- true
-        
+
         let proc = Process.Start(psi)
         fsiProcess <- Some proc
+        logger.LogDebug("FSI-START: FSI process started with PID {ProcessId}", proc.Id)
         
         // Stream all fsi output
         async {
@@ -80,13 +82,16 @@ type FsiService(logger: ILogger<FsiService>) =
                 while not proc.HasExited do
                     let! line = proc.StandardError.ReadLineAsync() |> Async.AwaitTask
                     if not (isNull line) then
+                        logger.LogDebug("FSI-STDERR: {Line}", line)
                         Console.WriteLine $"ERROR: %s{line}"
-                        
+                        Console.Out.Flush()  // Flush immediately for redirected stdout (Rider)
+
                         // Add error event to queue
                         let event = createFsiEvent "error" "fsi" line
                         addEvent event
             with
-            | ex -> logger.LogError($"Error monitoring error: %s{ex.Message}")
+            | ex ->
+                logger.LogError(ex, "FSI-ERROR: Error monitoring error")
         } |> Async.Start
         
         logger.LogInformation("🚀 FSI started with input/output interception!")
@@ -95,21 +100,27 @@ type FsiService(logger: ILogger<FsiService>) =
         proc
 
     member _.SendToFsi(code: string, source: FsiInputSource) =
+        let sourceName = getSourceName source
+        logger.LogDebug("FSI-INPUT: SendToFsi from {Source}: {Code}", sourceName, code.Trim())
         match fsiProcess with
         | Some proc when not proc.HasExited ->
-            let sourceName = getSourceName source
             if source <> Console then //Don't pipe CLI input back to CLI.
                 Console.WriteLine $"(%s{sourceName})> %s{code.Trim()}"
-            
+                Console.Out.Flush()  // Flush immediately for redirected stdout (Rider)
+
             // Add input event to queue
             let event = createFsiEvent "input" sourceName (code.Trim())
             addEvent event
             //Forward input to wrapped fsi process - send raw input
+            logger.LogDebug("FSI-FORWARD: Writing to FSI stdin: {Code}", code.Trim())
             proc.StandardInput.WriteLine(code)
             proc.StandardInput.Flush()
-            
+            logger.LogDebug("FSI-FORWARD: Flushed stdin")
+
             Ok "Code sent to FSI and logged"
-        | _ -> Error "FSI not running"
+        | _ ->
+            logger.LogDebug("FSI-ERROR: SendToFsi called but FSI not running")
+            Error "FSI not running"
 
     member this.SyncFileToFsi(filePath: string) =
         if File.Exists(filePath) then
@@ -141,8 +152,8 @@ type FsiService(logger: ILogger<FsiService>) =
         eventQueue.ToArray()
     
     member _.GetSessionId() = sessionId
-    
-    member _.Cleanup() =        
+
+    member _.Cleanup() =
         match fsiProcess with
         | Some proc when not proc.HasExited ->
             proc.Kill()
