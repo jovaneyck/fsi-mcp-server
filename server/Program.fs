@@ -55,11 +55,13 @@ type Program() =
         app
 
 let createApp (args: string[]) =
-    let app = Program.CreateWebApplication(args)
+    let (regArgs, fsiArgs) = args |> Array.partition (fun arg -> arg.StartsWith("fsi-mcp:") || arg.StartsWith("--contentRoot") || arg.StartsWith("--environment") || arg.StartsWith("--applicationName"))
+    
+    let app = Program.CreateWebApplication(regArgs |> Array.map _.Replace("fsi-mcp:",""))
     
     // Start FSI service
     let fsiService = app.Services.GetRequiredService<FsiService.FsiService>()
-    let fsiProcess = fsiService.StartFsi(args |> Array.filter _.StartsWith("fsi:") |> Array.map _.Replace("fsi:",""))
+    let fsiProcess = fsiService.StartFsi(fsiArgs)
     
     // Setup cleanup on shutdown
     let lifetime = app.Lifetime
