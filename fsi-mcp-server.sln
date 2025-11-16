@@ -2,13 +2,13 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "fsi-mcp-server", "server\fsi-mcp-server.fsproj", "{66A6FBF4-A123-4D56-8C1E-A2A28A67BF62}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mcp-csharp", "mcp-csharp\mcp-csharp.csproj", "{21D39D84-D506-4A50-AB94-E030706B57F8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mcp-example-csharp", "mcp-example-csharp\mcp-example-csharp.csproj", "{21D39D84-D506-4A50-AB94-E030706B57F8}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "mcp-fsharp", "mcp-fsharp\mcp-fsharp.fsproj", "{D5DC7A37-B990-411B-A221-9B3B5CCFBB36}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "mcp-example-fsharp", "mcp-example-fsharp\mcp-example-fsharp.fsproj", "{D5DC7A37-B990-411B-A221-9B3B5CCFBB36}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "specs", "specs", "{74258F1F-485D-472B-B727-1BD40A4883B3}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FsiMcpServer.Tests", "tests\FsiMcpServer.Tests\FsiMcpServer.Tests.fsproj", "{5BE48DCE-A1B5-47A2-A6AB-40DC2A4653BD}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "fsi-mcp-server.tests", "tests\fsi-mcp-server.tests\fsi-mcp-server.tests.fsproj", "{5BE48DCE-A1B5-47A2-A6AB-40DC2A4653BD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

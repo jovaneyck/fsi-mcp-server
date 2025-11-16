@@ -6,6 +6,7 @@
         <GenerateProgramFile>false</GenerateProgramFile>
         <IsTestProject>true</IsTestProject>
         <OutputType>Library</OutputType>
+        <RootNamespace>FsiMcpServer.Tests</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
