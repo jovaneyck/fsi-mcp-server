@@ -8,15 +8,12 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
-open FileLogger
+open Serilog
 
 type Program() =
     static member ConfigureServices(builder: WebApplicationBuilder, sessionId: string) =
-        // Configure logging - redirect ASP.NET logs away from console to keep FSI I/O clean
-        builder.Logging.ClearProviders() |> ignore
-        builder.Logging.AddDebug() |> ignore
-        builder.Logging.AddFileLogger($"c:/tmp/fsi-mcp-debugging-{sessionId}.log") |> ignore
-        builder.Logging.SetMinimumLevel(LogLevel.Debug) |> ignore
+        // Use Serilog for logging - global logger already configured in main()
+        builder.Host.UseSerilog() |> ignore
         
         builder.Services.AddSingleton<FsiService.FsiService>(fun serviceProvider ->
             let logger = serviceProvider.GetRequiredService<ILogger<FsiService.FsiService>>()
@@ -57,8 +54,7 @@ type Program() =
         Program.ConfigureApp(app)
         app
 
-let createApp (args: string[]) =
-    let sessionId = System.Guid.NewGuid().ToString("N")[..7] // Generate session ID early for logging
+let createApp (args: string[]) (sessionId: string) =
     let (regArgs, fsiArgs) = args |> Array.partition (fun arg -> arg.StartsWith("fsi-mcp:") || arg.StartsWith("--contentRoot") || arg.StartsWith("--environment") || arg.StartsWith("--applicationName"))
     
     let app = Program.CreateWebApplication(regArgs |> Array.map _.Replace("fsi-mcp:",""), sessionId)
@@ -98,7 +94,7 @@ let createApp (args: string[]) =
     // Start console input forwarding in background
     let inputChannel = Channel.CreateUnbounded<string>()
 
-    let startConsoleProducer (logger: ILogger) (cts: CancellationToken) =
+    let startConsoleProducer (logger: Microsoft.Extensions.Logging.ILogger) (cts: CancellationToken) =
         Task.Run(fun () ->
             logger.LogInformation("Console producer started")
             while not cts.IsCancellationRequested do
@@ -107,7 +103,7 @@ let createApp (args: string[]) =
                     inputChannel.Writer.TryWrite line |> ignore
         , cts)
     
-    let startFsiConsumer (fsiSvc: FsiService.FsiService) (logger: ILogger) (cts: CancellationToken) =
+    let startFsiConsumer (fsiSvc: FsiService.FsiService) (logger: Microsoft.Extensions.Logging.ILogger) (cts: CancellationToken) =
         Task.Run(fun () ->
             logger.LogInformation("FSI consumer started")
             logger.LogDebug("CONSOLE-CONSUMER: FSI consumer task started")
@@ -141,8 +137,21 @@ let createApp (args: string[]) =
 
 [<EntryPoint>]
 let main args =
-    let (app, consoleTask) = createApp args
-    let appTask = app.RunAsync()
-    Task.WaitAll([| appTask; consoleTask |])
-
-    0
+    // Generate session ID early for Serilog configuration
+    let sessionId = System.Guid.NewGuid().ToString("N")[..7]
+    
+    // Configure Serilog early - before any other logging
+    Log.Logger <- LoggerConfiguration()
+        .MinimumLevel.Debug()
+        .WriteTo.File($"c:/tmp/fsi-mcp-debugging-{sessionId}.log")
+        .CreateLogger()
+    
+    Log.Information("FSI MCP Server starting with session ID: {SessionId}", sessionId)
+    
+    try
+        let (app, consoleTask) = createApp args sessionId
+        let appTask = app.RunAsync()
+        Task.WaitAll([| appTask; consoleTask |])
+        0
+    finally
+        Log.CloseAndFlush()
