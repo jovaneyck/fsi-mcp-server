@@ -19,9 +19,8 @@ type FsiEvent = {
     SessionId: string
 }
 
-type FsiService(logger: ILogger<FsiService>) =
+type FsiService(logger: ILogger<FsiService>, sessionId: string) =
     let mutable fsiProcess: Process option = None
-    let sessionId = Guid.NewGuid().ToString("N")[..7] // Short session ID
     let eventQueue = ConcurrentQueue<FsiEvent>()
 
     let getSourceName = function

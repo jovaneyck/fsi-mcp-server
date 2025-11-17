@@ -11,14 +11,17 @@ open Microsoft.Extensions.Logging
 open FileLogger
 
 type Program() =
-    static member ConfigureServices(builder: WebApplicationBuilder) =
+    static member ConfigureServices(builder: WebApplicationBuilder, sessionId: string) =
         // Configure logging - redirect ASP.NET logs away from console to keep FSI I/O clean
         builder.Logging.ClearProviders() |> ignore
         builder.Logging.AddDebug() |> ignore
-        builder.Logging.AddFileLogger("c:/tmp/fsi-mcp-debugging.log") |> ignore
+        builder.Logging.AddFileLogger($"c:/tmp/fsi-mcp-debugging-{sessionId}.log") |> ignore
         builder.Logging.SetMinimumLevel(LogLevel.Debug) |> ignore
         
-        builder.Services.AddSingleton<FsiService.FsiService>()
+        builder.Services.AddSingleton<FsiService.FsiService>(fun serviceProvider ->
+            let logger = serviceProvider.GetRequiredService<ILogger<FsiService.FsiService>>()
+            new FsiService.FsiService(logger, sessionId)
+        )
         |> ignore
 
         builder.Services.AddSingleton<FsiMcpTools.FsiTools>(fun serviceProvider ->
@@ -47,17 +50,18 @@ type Program() =
         app.MapGet("/health", Func<string>(fun () -> "Ready to work!"))
         |> ignore
 
-    static member CreateWebApplication(args: string[]) =
+    static member CreateWebApplication(args: string[], sessionId: string) =
         let builder = WebApplication.CreateBuilder(args)
-        Program.ConfigureServices(builder)
+        Program.ConfigureServices(builder, sessionId)
         let app = builder.Build()
         Program.ConfigureApp(app)
         app
 
 let createApp (args: string[]) =
+    let sessionId = System.Guid.NewGuid().ToString("N")[..7] // Generate session ID early for logging
     let (regArgs, fsiArgs) = args |> Array.partition (fun arg -> arg.StartsWith("fsi-mcp:") || arg.StartsWith("--contentRoot") || arg.StartsWith("--environment") || arg.StartsWith("--applicationName"))
     
-    let app = Program.CreateWebApplication(regArgs |> Array.map _.Replace("fsi-mcp:",""))
+    let app = Program.CreateWebApplication(regArgs |> Array.map _.Replace("fsi-mcp:",""), sessionId)
     
     // Start FSI service
     let fsiService = app.Services.GetRequiredService<FsiService.FsiService>()
@@ -75,7 +79,7 @@ let createApp (args: string[]) =
         Environment.Exit(0))
     
     let status =
-        [ "🚀 FSI.exe with MCP Server"
+        [ $"🚀 FSI.exe with MCP Server (Session: {sessionId})"
           ""
           "🛠️  MCP Tools Available:"
           "   - SendFSharpCode: Execute F# code"
