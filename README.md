@@ -132,6 +132,21 @@ native:
 
 This creates a seamless experience where you can work with F# interactively while Claude assists by executing code, running tests, and maintaining collaborative scripts.
 
+#### Setting Up Claude Desktop Integration
+
+```json
+{
+  "mcpServers": {
+    "fsi-mcp": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://localhost:5020/sse"
+      ]
+    }
+  }
+```
+
 ## Typical Programming Session Workflow
 
 ### 1. Start FSI Server
