@@ -28,6 +28,52 @@ fsi-mcp wraps the standard F# Interactive process while maintaining full CLI com
 - **Hybrid Usage**: Mix console input and MCP calls in the same session
 - **Full CLI Compatibility**: Use as a drop-in replacement for `fsi.exe`. All arguments not prefixed with `fsi-mcp:` are passed to the underlying FSI process.
 
+```markdown
+┌───────────────────────────────────────────────────────────┐
+│                     External Clients                      │
+│  ┌──────────┐  ┌──────────┐  ┌─────────────────┐          │
+│  │ Console  │  │   MCP    │  │  IDE            │          │
+│  │  Users   │  │ Clients  │  │                 │          │
+│  └──────────┘  └──────────┘  └─────────────────┘          │
+└───────┬─────────────┬─────────────────┬───────────────────┘
+        │             │                 │
+        │ stdin/out   │ HTTP/SSE        │ stdin/out
+        │             │ :5020           │
+        v             v                 v
+┌─────────────────────────────────────────────────────────────┐
+│         FSI MCP Server (ASP.NET Core)                       │
+│                                                             │
+│  ┌────────────────────────────────────────────────────┐     │
+│  │           MCP Tools (HTTP Transport)               │     │
+│  │  • SendFSharpCode                                  │     │
+│  │  • LoadFSharpScript                                │     │
+│  │  • GetRecentFsiEvents                              │     │
+│  │  • GetFsiStatus                                    │     │
+│  └────────────────────────────────────────────────────┘     │
+│                         │                                   │
+│  ┌────────────────────────────────────────────────────┐     │
+│  │              FsiService (Core)                     │     │
+│  │  • Manages FSI process lifecycle                   │     │
+│  │  • Captures I/O streams                            │     │
+│  │  • Tracks events from all sources                  │     │
+│  └────────────────────────────────────────────────────┘     │
+│                         │                                   │
+└─────────────────────────┼───────────────────────────────────┘
+                          │
+                          v stdin
+                    ┌───────────┐
+                    │  dotnet   │
+                    │    fsi    │
+                    └───────────┘
+                     stdout/stderr
+
+```
+Key Flows:
+- Console input → forwarded to FSI + logged as events
+- MCP tool calls → forwarded to FSI + logged as events
+- FSI output → displayed on console + logged as events
+- All logged events → available via MCP tool call GetRecentFsiEvents
+
 ## Quick Start
 
 ### Building the Project
