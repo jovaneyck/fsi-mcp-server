@@ -9,7 +9,7 @@ open Microsoft.Extensions.Logging
 
 type FsiTools(fsiService: FsiService.FsiService, logger: ILogger<FsiTools>) =
     [<McpServerTool(Name=McpToolNames.SendFSharpCode)>]
-    [<Description("Send F# code to the FSI (F# Interactive) session for execution.")>]
+    [<Description("Send F# code to the FSI (F# Interactive) session for execution. Make sure to the statements with ';;' just as you would when interacting with fsi.exe.")>]
     member _.SendFSharpCode(agentName: string, code: string) : string =
         logger.LogDebug("MCP-TOOL: SendFSharpCode called by {AgentName}: {Code}", agentName, code)
         match fsiService.SendToFsi(code, FsiService.FsiInputSource.Api agentName) with
