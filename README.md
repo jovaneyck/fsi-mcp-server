@@ -2,6 +2,29 @@
 
 A drop-in replacement for `fsi.exe` that adds MCP capabilities to F# Interactive sessions. Perfect for AI-assisted development workflows where you need programmatic access to F# Interactive.
 
+## Table of Contents
+
+- [Why FSI MCP Server?](#why-fsi-mcp-server)
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+  - [Building the Project](#building-the-project)
+  - [Basic Usage](#basic-usage)
+- [JetBrains Rider Integration](#jetbrains-rider-integration)
+  - [Replace F# Interactive (Recommended setup)](#replace-f-interactive-recommended-setup)
+  - [Alternative: Terminal Integration](#alternative-terminal-integration)
+  - [AI Assistant Integration](#ai-assistant-integration)
+    - [Setting Up Claude Code Integration](#setting-up-claude-code-integration)
+    - [Setting Up Claude Desktop Integration](#setting-up-claude-desktop-integration)
+    - [Setting Up Github Copilot Integration](#setting-up-github-copilot-integration)
+- [Typical Programming Session Workflow](#typical-programming-session-workflow)
+  - [1. Start FSI Server](#1-start-fsi-server)
+  - [2. Load Your Project Context](#2-load-your-project-context)
+  - [3. Hybrid Development](#3-hybrid-development)
+- [Configuration](#configuration)
+  - [CLI Pass-through](#cli-pass-through)
+- [Requirements](#requirements)
+- [License](#license)
+
 ## Why FSI MCP Server?
 
 It's the F# Interactive REPL we know and love, but your AI assistant is sitting right next to you, both of you coding together in the same REPL session.
