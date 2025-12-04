@@ -147,6 +147,25 @@ This creates a seamless experience where you can work with F# interactively whil
   }
 ```
 
+#### Setting Up Github Copilot Integration
+
+##### 1. Install the mcp server:
+
+```json
+"servers": {
+    "fsi-mcp": {
+        "url": "http://localhost:5020/sse",
+        "type": "http"
+    }
+}
+```
+
+##### 2. Create a custom agent file, e.g. [fsi.agent.md](./server/prompts/fsi.agent.md)
+
+You can find an example prompt here:
+
+##### 3. Run github copilot with the custom agent
+
 ## Typical Programming Session Workflow
 
 ### 1. Start FSI Server
