@@ -10,7 +10,7 @@ It's the F# Interactive REPL we know and love, but your AI assistant is sitting 
 
 ![img](./assets/youtube.png)
 
-[Link to short youtube demo](https://www.youtube.com/watch?v=5c0haxgLMmg)
+[Link to youtube demo](https://www.youtube.com/watch?v=_AxsTQDxSbc)
 
 Imagine you're developing a tricky F# algorithm in your fsi REPL. You've loaded your modules, you're exploring data structures, and you're trying to figure out why a function isn't behaving as expected. Now imagine your AI assistant can *see* what you're typing into F# Interactive, *see* the output, and *execute* code snippets to help you - all in the same session you're working in, seamlessly.
 No more wild growth of several debug.fsx scripts or waiting on new sessions to start, the AI agent just hitches a ride on your active session.
