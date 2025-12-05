@@ -2,6 +2,10 @@
 
 A drop-in replacement for `fsi.exe` that adds MCP capabilities to F# Interactive sessions. Perfect for AI-assisted development workflows where you need programmatic access to F# Interactive.
 
+## Disclaimer
+
+> This is a technical proof-of-concept and **not yet ready for production/enterprise use**.
+
 ## Table of Contents
 
 - [Why FSI MCP Server?](#why-fsi-mcp-server)
