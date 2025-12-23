@@ -138,12 +138,14 @@ let createApp (args: string[]) (sessionId: string) =
 [<EntryPoint>]
 let main args =
     // Generate session ID early for Serilog configuration
-    let sessionId = System.Guid.NewGuid().ToString("N")[..7]
-    
+    let sessionId = Guid.NewGuid().ToString("N")[..7]
+    // OS specific temp path    
+    let tempPath = IO.Path.GetTempPath()
+    let logFilePath = IO.Path.Combine(tempPath, $"fsi-mcp-debugging-{sessionId}.log")
     // Configure Serilog early - before any other logging
     Log.Logger <- LoggerConfiguration()
         .MinimumLevel.Debug()
-        .WriteTo.File($"c:/tmp/fsi-mcp-debugging-{sessionId}.log")
+        .WriteTo.File(logFilePath)
         .CreateLogger()
     
     Log.Information("FSI MCP Server starting with session ID: {SessionId}", sessionId)
